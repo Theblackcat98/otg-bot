@@ -1,0 +1,14 @@
+{
+  "name": "otg-bot",
+  "version": "1.0.0",
+  "description": "URL keeper pipeline: ingestion API, scraper worker, embedded SQLite store (FTS5 search).",
+  "type": "module",
+  "module": "src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun run --watch src/index.ts"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0"
+  }
+}
