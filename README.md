@@ -1,117 +1,135 @@
-# OTG-BOT — URL keeper pipeline
+# OTG-BOT — URL keeper
 
-A single Bun service that keeps URLs you throw at it: it ingests them through a
-small HTTP API, scrapes each page in a background worker, and stores cleaned
-text plus raw metadata in an embedded SQLite database with full-text search.
+A single Bun service that keeps the web for you. Send it links from bookmarks,
+share sheets, bookmark exports, or RSS/Atom feeds. A background worker fetches
+each page, stores the cleaned text, a raw HTML snapshot, and metadata in an
+embedded SQLite database, and makes everything searchable. A built-in web UI
+lets you read, tag, annotate, and manage it.
+
+For day-to-day usage see **[DOCS.md](DOCS.md)**.
+
+## Features
+
+- **Web UI** at `/` — library, full-text search, reader view, tags and notes, bookmark import, feed and settings panels.
+- **Ingestion API** — single or batch URLs (JSON, form, plain text, or `GET ?url=`), with optional tags.
+- **Bookmark import** — browser bookmarks HTML export; folder names become tags.
+- **Scraper worker** — concurrent fetches (default 4), size cap, timeout, retries, boilerplate removal (Cheerio).
+- **Raw snapshots** — the original HTML of each page, served sandboxed.
+- **Tags and notes** — organise and annotate documents; filter lists and search by tag.
+- **RSS/Atom watcher** — polls feeds on an interval, ingests new items, tags them with the feed name. Feeds, interval and on/off switch are managed in the UI.
+- **Full-text search** — SQLite FTS5, prefix matching, ranked, highlighted snippets.
 
 ## Architecture
 
 ```
-bookmarks / share sheets
-        │  POST|GET /ingest
+bookmarks · share sheets · feeds · web UI
+        │  /ingest · /import/bookmarks · /feeds · /documents/*
         ▼
-┌──────────────────┐      ┌────────────────────┐      ┌──────────────────────┐
-│  Ingestion API   │ ───▶ │   Scraper worker   │ ───▶ │    Embedded store    │
-│  (Bun.serve)     │      │ fetch + Cheerio    │      │ bun:sqlite + FTS5    │
-│  enqueue URLs    │      │ clean text, meta   │      │ content, metadata,   │
-└──────────────────┘      └────────────────────┘      │ search index         │
-                                                      └──────────────────────┘
+┌──────────────────────┐   ┌────────────────────────┐   ┌──────────────────────────────┐
+│  Ingestion API       │──▶│  Scraper worker        │──▶│  Embedded store (bun:sqlite) │
+│  src/index.ts        │   │  src/worker.ts         │   │  src/db.ts                   │
+│  Web UI (src/ui.html)│   │  src/scraper.ts        │   │  documents · documents_fts   │
+│  Bookmark import     │   │  fetch + Cheerio       │   │  snapshots · tags · notes    │
+│  Feed watcher        │   │  clean text + metadata │   │  feeds · settings            │
+│  src/feeds.ts        │   └────────────────────────┘   └──────────────────────────────┘
+└──────────────────────┘
 ```
 
-- **Ingestion API** — `src/index.ts`: Bun HTTP server. Accepts single URLs or
-  batches as JSON, form data, plain text (share-sheet style) or `?url=` on GET.
-- **Scraper worker** — `src/worker.ts` + `src/scraper.ts`: polls the queue
-  (configurable concurrency), fetches with a size cap and timeout, strips
-  boilerplate, extracts title/description/author/canonical/image and the
-  article text with Cheerio.
-- **Embedded store** — `src/db.ts`: `bun:sqlite` (WAL mode). `documents` table
-  holds cleaned content and raw metadata (meta tags, link tags, JSON-LD,
-  response info); `documents_fts` is an FTS5 index kept in sync automatically.
+- **Ingestion API** — `src/index.ts`: `Bun.serve` router, validation, bookmark import, write-token check.
+- **Web UI** — `src/ui.html`: a single HTML file (no build step), embedded into the bundle as text.
+- **Feed watcher** — `src/feeds.ts`: RSS 2.0 and Atom parsing, ETag / If-Modified-Since, per-feed status.
+- **Scraper worker** — `src/worker.ts` + `src/scraper.ts`: claims queued documents, streams the body with a size cap, decodes the charset, extracts metadata and article text.
+- **Embedded store** — `src/db.ts`: WAL-mode SQLite. Schema is created with `CREATE … IF NOT EXISTS`, so upgrades add tables without migrations.
 
 ## Run
 
 ```sh
 bun install
-bun run src/index.ts        # dev start command: bun run src/index.ts
+bun run src/index.ts        # development
 ```
 
 ### Production bundle
 
-`dist/index.js` is a self-contained Bun bundle (cheerio included) so the
-server needs no install or build step at boot. It is **committed to this
-repo** so a Botkeep GitHub pull can run immediately:
+Botkeep caps archive extraction at 250 entries, which `node_modules` exceeds.
+`dist/index.js` is a self-contained bundle (cheerio and the UI included):
 
 ```sh
 bun build src/index.ts --target=bun --outfile dist/index.js --external bun:sqlite
 bun dist/index.js           # deployed start command: bun run dist/index.js
 ```
 
-After changing `src/`, rebuild the bundle and commit it, or the pulled
-deployment will run the stale bundle. (Botkeep also runs `bun install`
-automatically at boot, so `bun run src/index.ts` would work there too — point
-the startup command at it if you prefer no committed bundle.)
+Open `http://localhost:3000/` for the UI.
 
 ## API
 
-| Method | Path | Description |
+The full reference with examples is in [DOCS.md](DOCS.md). Summary:
+
+| Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/health` | liveness probe |
-| GET | `/` | service info + endpoint map |
-| POST | `/ingest` | submit URL(s): `{"url"}` \| `{"urls":[…]}` \| `url=…` form \| plain text |
-| GET | `/ingest?url=…` | bookmarklet / share-sheet friendly submission |
-| GET | `/documents?limit=&offset=&status=` | list documents (excerpt view) |
-| GET | `/documents/:id` | full document incl. cleaned content + raw metadata |
-| DELETE | `/documents/:id` | remove a document |
-| GET | `/search?q=…` | full-text search (FTS5, ranked) |
-| GET | `/queue` | worker queue statistics |
+| GET | `/` | Web UI |
+| GET | `/api` | Service info and endpoint map |
+| GET | `/health` | Liveness probe |
+| POST | `/ingest` · GET `/ingest?url=` | Save URL(s), optional `tags` |
+| POST | `/import/bookmarks` | Import a bookmarks HTML export |
+| GET | `/documents` | List (`status`, `tag`, `limit`, `offset`) |
+| GET · DELETE | `/documents/:id` | Document detail (content, tags, notes) · delete |
+| GET | `/documents/:id/raw` | Stored HTML snapshot (sandboxed) |
+| POST | `/documents/:id/tags` | Replace tags |
+| POST | `/documents/:id/notes` · DELETE `/documents/:id/notes/:noteId` | Add · delete note |
+| GET | `/search?q=&tag=` | Full-text search |
+| GET · POST | `/feeds` | List · add feed |
+| PATCH · DELETE | `/feeds/:id` | Enable/disable · remove feed |
+| POST | `/feeds/:id/check` | Check a feed now |
+| GET · PUT | `/settings` | Runtime settings |
+| GET | `/queue` | Worker queue statistics |
 
-### Examples
+Every write (POST, PUT, PATCH, DELETE) requires `INGEST_TOKEN` when it is set.
 
-```sh
-# single URL
-curl -X POST https://host/ingest -H 'content-type: application/json' \
-  -d '{"url":"https://example.com/article"}'
+## Configuration
 
-# batch
-curl -X POST https://host/ingest -H 'content-type: application/json' \
-  -d '{"urls":["https://a.example","https://b.example"]}'
-
-# share sheet / plain text
-curl -X POST https://host/ingest -H 'content-type: text/plain' \
-  -d 'https://example.com/article'
-
-# list, read, search
-curl https://host/documents?limit=10
-curl https://host/documents/42
-curl 'https://host/search?q=sqlite'
-```
-
-### Bookmarklet
-
-```js
-javascript:location.href='https://YOUR-HOST/ingest?url='+encodeURIComponent(location.href)
-```
-
-## Configuration (environment)
+### Environment
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `PORT` | `3000` | HTTP listen port (Botkeep sets `SERVER_PORT`; that takes precedence) |
-| `DATA_DIR` | `./data` | where the SQLite file lives |
-| `INGEST_TOKEN` | *(unset)* | when set, `/ingest` and DELETE require `Authorization: Bearer …` or `?token=` |
-| `CONCURRENCY` | `2` | parallel fetches in the worker |
-| `POLL_MS` | `2000` | queue poll interval |
-| `FETCH_TIMEOUT_MS` | `20000` | per-page fetch timeout |
-| `MAX_BYTES` | `5000000` | max HTML bytes fetched per page |
-| `MAX_ATTEMPTS` | `3` | retries before a URL is marked `error` |
-| `USER_AGENT` | `OTGBot/1.0` | fetch user agent |
+| `SERVER_PORT` / `PORT` | `3000` | HTTP listen port. Botkeep sets `SERVER_PORT`, which takes precedence. |
+| `DATA_DIR` | `./data` | Directory of the SQLite file `otg.sqlite` |
+| `INGEST_TOKEN` | *(unset)* | When set, all writes need `Authorization: Bearer …` or `?token=` |
+| `CONCURRENCY` | `4` | Parallel page fetches in the worker |
+| `POLL_MS` | `2000` | Queue poll interval |
+| `FETCH_TIMEOUT_MS` | `20000` | Per-page fetch timeout |
+| `MAX_BYTES` | `5000000` | Maximum HTML bytes fetched per page |
+| `MAX_ATTEMPTS` | `3` | Attempts before a document is marked `error` |
+| `SNAPSHOTS` | `1` | Set to `0` to disable snapshot storage entirely |
+| `USER_AGENT` | `Mozilla/5.0 (compatible; OTGBot/1.0; …)` | User agent for page and feed fetches |
+
+### Runtime settings (managed in the UI or `PUT /settings`)
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `feed_poll_minutes` | `15` | Feed check interval, 1–1440 |
+| `feeds_enabled` | `1` | Feed watcher on (`1`) or off (`0`) |
+| `snapshots` | `1` | Store raw snapshots for newly scraped pages |
 
 ## Document lifecycle
 
 `queued → processing → ready`, or `error` after `MAX_ATTEMPTS` failed tries.
-Interrupted `processing` rows are re-queued automatically on restart.
+Documents left in `processing` by a restart are re-queued at boot. Re-saving a
+URL that already exists does not re-scrape it; delete it first to refresh.
+
+## Testing
+
+The end-to-end suite (`test/e2e.ts`) checks every endpoint against a live
+instance. It uses a fixture server (`test/fixtures.ts`) that serves pages, RSS,
+Atom, an ETag-aware feed, a failing feed and a bookmarks export.
+
+```sh
+bun run build
+bun run test:fixtures &                       # port 3995
+SERVER_PORT=3996 DATA_DIR=/tmp/otg-test bun dist/index.js &
+bun run test:e2e                              # expects 62 passing checks
+```
 
 ## Deployed on Botkeep
 
-Server: **OTG-BOT** (Bun 1.4.2) — start command `bun run dist/index.js`
-(self-contained bundle; see "Production bundle" above).
+Server **OTG-BOT** (Bun 1.4.2), start command `bun run dist/index.js`.
+Public address: `http://node4.botkeep.cloud:37112/` — plain HTTP, no TLS.

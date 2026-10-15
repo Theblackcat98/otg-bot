@@ -19,6 +19,7 @@ export interface Extracted {
   canonicalUrl: string | null;
   image: string | null;
   content: string;
+  html: string; // raw page snapshot
   wordCount: number;
   readingMinutes: number;
   contentType: string;
@@ -220,6 +221,7 @@ export async function fetchAndExtract(
     canonicalUrl: absolute(url, linkRels["canonical"] ?? metas["og:url"]),
     image: absolute(url, metas["og:image"] ?? metas["twitter:image"]),
     content: text,
+    html: html.slice(0, 5_000_000),
     wordCount,
     readingMinutes: Math.max(1, Math.ceil(wordCount / 200)),
     contentType,

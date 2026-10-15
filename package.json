@@ -1,12 +1,15 @@
 {
   "name": "otg-bot",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "URL keeper pipeline: ingestion API, scraper worker, embedded SQLite store (FTS5 search).",
   "type": "module",
   "module": "src/index.ts",
   "scripts": {
     "start": "bun run src/index.ts",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --target=bun --outfile dist/index.js --external bun:sqlite",
+    "test:fixtures": "bun test/fixtures.ts",
+    "test:e2e": "bun test/e2e.ts"
   },
   "dependencies": {
     "cheerio": "^1.0.0"

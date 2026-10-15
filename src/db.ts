@@ -54,6 +54,52 @@ CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
 );
 
 CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status, id);
+
+-- #1 raw page snapshots (full HTML kept alongside cleaned content)
+CREATE TABLE IF NOT EXISTS snapshots (
+  document_id  INTEGER PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+  content_type TEXT,
+  html         TEXT NOT NULL,
+  bytes        INTEGER NOT NULL,
+  fetched_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+-- #10 tagging
+CREATE TABLE IF NOT EXISTS tags (
+  document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  tag         TEXT NOT NULL,
+  PRIMARY KEY (document_id, tag)
+);
+CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag);
+
+-- #10 notes
+CREATE TABLE IF NOT EXISTS notes (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  note        TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+-- #8 RSS/Atom feeds
+CREATE TABLE IF NOT EXISTS feeds (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  url             TEXT    NOT NULL UNIQUE,
+  title           TEXT,
+  enabled         INTEGER NOT NULL DEFAULT 1,
+  etag            TEXT,
+  last_modified   TEXT,
+  last_checked_at TEXT,
+  last_status     TEXT, -- ok | not-modified | error
+  last_error      TEXT,
+  items_ingested  INTEGER NOT NULL DEFAULT 0,
+  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+-- editable runtime settings (managed in the web UI)
+CREATE TABLE IF NOT EXISTS settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `);
 
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
@@ -98,6 +144,17 @@ export function indexDocument(d: {
 
 export function removeDocumentFromIndex(id: number): void {
   db.run("DELETE FROM documents_fts WHERE rowid = ?", [id]);
+}
+
+/** Delete a document plus its snapshot, tags and notes (FTS too). */
+export function deleteDocument(id: number): boolean {
+  const changes = db.run("DELETE FROM documents WHERE id = ?", [id]).changes;
+  if (changes === 0) return false;
+  removeDocumentFromIndex(id);
+  db.run("DELETE FROM snapshots WHERE document_id = ?", [id]);
+  db.run("DELETE FROM tags WHERE document_id = ?", [id]);
+  db.run("DELETE FROM notes WHERE document_id = ?", [id]);
+  return true;
 }
 
 export const stmts = {
@@ -146,40 +203,249 @@ export const stmts = {
     FROM documents WHERE status = 'error'
     ORDER BY updated_at DESC LIMIT 10
   `),
-
-  search: db.prepare(`
-    SELECT d.id, d.url, d.title, d.site_name, d.status, d.word_count,
-           d.created_at,
-           snippet(documents_fts, 2, '<mark>', '</mark>', '…', 16) AS snippet,
-           bm25(documents_fts) AS rank
-    FROM documents_fts
-    JOIN documents d ON d.id = documents_fts.rowid
-    WHERE documents_fts MATCH ?
-    ORDER BY rank
-    LIMIT ? OFFSET ?
-  `),
 };
+
+/** Insert a URL if unseen. Returns true when a new document was created. */
+export function insertIgnoreByUrl(url: string): boolean {
+  return db.run("INSERT OR IGNORE INTO documents (url) VALUES (?)", [url]).changes > 0;
+}
+
+export function hasSnapshot(documentId: number): boolean {
+  return !!db.prepare("SELECT 1 FROM snapshots WHERE document_id = ?").get(documentId);
+}
+
+/** Full-text search, optionally restricted to one tag. */
+export function searchDocuments(
+  match: string,
+  tag: string | null,
+  limit: number,
+  offset: number,
+): Record<string, unknown>[] {
+  const tagClause = tag ? "AND d.id IN (SELECT document_id FROM tags WHERE tag = ?)" : "";
+  const params = tag ? [match, tag, limit, offset] : [match, limit, offset];
+  const rows = db
+    .prepare(
+      `SELECT d.id, d.url, d.title, d.site_name, d.status, d.word_count, d.created_at,
+              snippet(documents_fts, 2, '<mark>', '</mark>', '…', 16) AS snippet,
+              bm25(documents_fts) AS rank,
+              (SELECT group_concat(t.tag, ',') FROM tags t WHERE t.document_id = d.id) AS tags
+       FROM documents_fts
+       JOIN documents d ON d.id = documents_fts.rowid
+       WHERE documents_fts MATCH ? ${tagClause}
+       ORDER BY rank LIMIT ? OFFSET ?`,
+    )
+    .all(...params) as Record<string, unknown>[];
+  for (const r of rows) r.tags = r.tags ? String(r.tags).split(",") : [];
+  return rows;
+}
 
 export function listDocuments(
   status: string | null,
+  tag: string | null,
   limit: number,
   offset: number,
-): DocumentRow[] {
-  const where = status ? "WHERE status = ?" : "";
-  const sql = `
-    SELECT id, url, status, title, description, site_name, author,
-           word_count, reading_minutes, content_type, fetched_at,
-           created_at, substr(content, 1, 240) AS excerpt
-    FROM documents ${where}
-    ORDER BY id DESC LIMIT ? OFFSET ?
-  `;
-  const params = status ? [status, limit, offset] : [limit, offset];
-  return db.prepare(sql).all(...params) as DocumentRow[];
+): Record<string, unknown>[] {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (status) {
+    where.push("d.status = ?");
+    params.push(status);
+  }
+  if (tag) {
+    where.push("EXISTS (SELECT 1 FROM tags ft WHERE ft.document_id = d.id AND ft.tag = ?)");
+    params.push(tag);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const rows = db
+    .prepare(
+      `SELECT d.id, d.url, d.status, d.title, d.description, d.site_name, d.author,
+              d.word_count, d.reading_minutes, d.content_type, d.fetched_at,
+              d.created_at, substr(d.content, 1, 240) AS excerpt,
+              (SELECT group_concat(t.tag, ',') FROM tags t WHERE t.document_id = d.id) AS tags
+       FROM documents d ${whereSql}
+       ORDER BY d.id DESC LIMIT ? OFFSET ?`,
+    )
+    .all(...params, limit, offset) as Record<string, unknown>[];
+  for (const r of rows) r.tags = r.tags ? String(r.tags).split(",") : [];
+  return rows;
 }
 
-export function countDocuments(status: string | null): number {
-  const row = status
-    ? db.prepare("SELECT COUNT(*) AS n FROM documents WHERE status = ?").get(status)
-    : db.prepare("SELECT COUNT(*) AS n FROM documents").get();
+export function countDocuments(status: string | null, tag: string | null): number {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (status) {
+    where.push("status = ?");
+    params.push(status);
+  }
+  if (tag) {
+    where.push("id IN (SELECT document_id FROM tags WHERE tag = ?)");
+    params.push(tag);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const row = db.prepare(`SELECT COUNT(*) AS n FROM documents ${whereSql}`).get(...params);
   return Number((row as { n: number }).n);
+}
+
+// ---------------------------------------------------------------- snapshots (#1)
+
+export function saveSnapshot(documentId: number, html: string, contentType: string): void {
+  db.run(
+    `INSERT INTO snapshots (document_id, content_type, html, bytes)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(document_id) DO UPDATE SET
+       content_type = excluded.content_type, html = excluded.html,
+       bytes = excluded.bytes, fetched_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
+    [documentId, contentType, html, Buffer.byteLength(html)],
+  );
+}
+
+export function getSnapshot(documentId: number): { html: string; content_type: string | null } | null {
+  return (db
+    .prepare("SELECT html, content_type FROM snapshots WHERE document_id = ?")
+    .get(documentId) as { html: string; content_type: string | null } | undefined) ?? null;
+}
+
+// ---------------------------------------------------------------- tags (#10)
+
+export function setTags(documentId: number, tags: string[]): string[] {
+  const clean = [
+    ...new Set(
+      tags
+        .map((t) => String(t).trim().toLowerCase().slice(0, 64))
+        .filter((t) => t.length > 0 && t.length <= 64),
+    ),
+  ].slice(0, 32);
+  db.run("DELETE FROM tags WHERE document_id = ?", [documentId]);
+  for (const t of clean) {
+    db.run("INSERT OR IGNORE INTO tags (document_id, tag) VALUES (?, ?)", [documentId, t]);
+  }
+  return clean;
+}
+
+export function addTag(documentId: number, tag: string): void {
+  db.run("INSERT OR IGNORE INTO tags (document_id, tag) VALUES (?, ?)", [
+    documentId,
+    tag.trim().toLowerCase().slice(0, 64),
+  ]);
+}
+
+export function getTags(documentId: number): string[] {
+  return (
+    db.prepare("SELECT tag FROM tags WHERE document_id = ? ORDER BY tag").all(documentId) as {
+      tag: string;
+    }[]
+  ).map((r) => r.tag);
+}
+
+// ---------------------------------------------------------------- notes (#10)
+
+export function addNote(documentId: number, note: string): { id: number; note: string; created_at: string } {
+  const r = db
+    .prepare("INSERT INTO notes (document_id, note) VALUES (?, ?) RETURNING id, note, created_at")
+    .get(documentId, note.trim().slice(0, 8000)) as {
+    id: number;
+    note: string;
+    created_at: string;
+  };
+  return r;
+}
+
+export function listNotes(documentId: number): { id: number; note: string; created_at: string }[] {
+  return db
+    .prepare("SELECT id, note, created_at FROM notes WHERE document_id = ? ORDER BY id")
+    .all(documentId) as { id: number; note: string; created_at: string }[];
+}
+
+export function deleteNote(documentId: number, noteId: number): boolean {
+  return db.run("DELETE FROM notes WHERE id = ? AND document_id = ?", [noteId, documentId]).changes > 0;
+}
+
+// ---------------------------------------------------------------- feeds (#8)
+
+export interface FeedRow {
+  id: number;
+  url: string;
+  title: string | null;
+  enabled: number;
+  etag: string | null;
+  last_modified: string | null;
+  last_checked_at: string | null;
+  last_status: string | null;
+  last_error: string | null;
+  items_ingested: number;
+  created_at: string;
+}
+
+export function insertFeed(url: string): FeedRow | null {
+  db.run("INSERT OR IGNORE INTO feeds (url) VALUES (?)", [url]);
+  return (db.prepare("SELECT * FROM feeds WHERE url = ?").get(url) as FeedRow | undefined) ?? null;
+}
+
+export function listFeeds(): FeedRow[] {
+  return db.prepare("SELECT * FROM feeds ORDER BY id").all() as FeedRow[];
+}
+
+export function getFeed(id: number): FeedRow | null {
+  return (db.prepare("SELECT * FROM feeds WHERE id = ?").get(id) as FeedRow | undefined) ?? null;
+}
+
+export function enabledFeeds(): FeedRow[] {
+  return db.prepare("SELECT * FROM feeds WHERE enabled = 1 ORDER BY id").all() as FeedRow[];
+}
+
+export function setFeedEnabled(id: number, enabled: boolean): void {
+  db.run("UPDATE feeds SET enabled = ? WHERE id = ?", [enabled ? 1 : 0, id]);
+}
+
+export function deleteFeed(id: number): boolean {
+  return db.run("DELETE FROM feeds WHERE id = ?", [id]).changes > 0;
+}
+
+export function markFeedChecked(
+  id: number,
+  status: "ok" | "not-modified" | "error",
+  opts: { title?: string | null; etag?: string | null; lastModified?: string | null; error?: string | null; ingested?: number } = {},
+): void {
+  db.run(
+    `UPDATE feeds SET
+       last_status = ?, last_error = ?, last_checked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+       title = COALESCE(?, title), etag = COALESCE(?, etag), last_modified = COALESCE(?, last_modified),
+       items_ingested = items_ingested + ?
+     WHERE id = ?`,
+    [status, opts.error ?? null, opts.title ?? null, opts.etag ?? null, opts.lastModified ?? null, opts.ingested ?? 0, id],
+  );
+}
+
+// ---------------------------------------------------------------- settings (UI-managed)
+
+const SETTING_DEFAULTS: Record<string, string> = {
+  feed_poll_minutes: "15",
+  feeds_enabled: "1",
+  snapshots: "1",
+};
+
+export const SETTING_KEYS = Object.keys(SETTING_DEFAULTS);
+
+export function getSetting(key: string): string {
+  if (!(key in SETTING_DEFAULTS)) throw new Error(`unknown setting: ${key}`);
+  const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as
+    | { value: string }
+    | undefined;
+  return row?.value ?? SETTING_DEFAULTS[key];
+}
+
+export function setSetting(key: string, value: string): void {
+  if (!(key in SETTING_DEFAULTS)) throw new Error(`unknown setting: ${key}`);
+  db.run(
+    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    [key, value],
+  );
+}
+
+export function getSettings(): Record<string, string> {
+  const out: Record<string, string> = { ...SETTING_DEFAULTS };
+  for (const row of db.prepare("SELECT key, value FROM settings").all() as { key: string; value: string }[]) {
+    if (row.key in out) out[row.key] = row.value;
+  }
+  return out;
 }

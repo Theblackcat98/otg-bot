@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OTG-BOT · Keeper</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f6f6f3; --fg: #1c1c1a; --muted: #6d6d67; --line: #e1e1db; --card: #ffffff;
+    --accent: #2f6fdb; --ready: #2e7d4f; --queued: #a86b12; --processing: #2b6cb0;
+    --error: #c03030; --mark: #fff0a0; --chip: #ecece6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --fg: #e9e8e3; --muted: #9a9991; --line: #2b2b28; --card: #1d1d1b;
+      --accent: #7aa7ff; --ready: #5fbf85; --queued: #e0a64b; --processing: #7fb1ec;
+      --error: #ff7b7b; --mark: #5b4d12; --chip: #2a2a27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .bar { max-width: 980px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .brand { font-weight: 700; letter-spacing: .04em; color: var(--fg); }
+  nav { display: flex; gap: 4px; }
+  nav a { color: var(--muted); padding: 5px 10px; border-radius: 7px; }
+  nav a.active, nav a:hover { color: var(--fg); background: var(--card); text-decoration: none; }
+  .status { margin-left: auto; font-size: 13px; color: var(--muted); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--error); margin-right: 6px; vertical-align: middle; }
+  .dot.ok { background: var(--ready); }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 80px; }
+  h1 { font-size: 22px; margin: 4px 0 6px; line-height: 1.3; }
+  h2 { font-size: 16px; margin: 0 0 10px; }
+  h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius, 10px); padding: 14px; margin-bottom: 14px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .grow { flex: 1 1 260px; }
+  input[type=text], input[type=url], input[type=password], input[type=number], select, textarea {
+    font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; min-width: 0;
+  }
+  textarea { width: 100%; min-height: 70px; resize: vertical; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button, .btn {
+    font: inherit; cursor: pointer; color: var(--fg); background: var(--chip); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  }
+  button:hover, .btn:hover { text-decoration: none; filter: brightness(1.05); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--error); }
+  button:disabled { opacity: .5; cursor: default; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .meta { color: var(--muted); font-size: 13px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .badge { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor; }
+  .badge.ready, .badge.ok { color: var(--ready); }
+  .badge.queued, .badge.pending, .badge.never { color: var(--queued); }
+  .badge.processing, .badge.not-modified { color: var(--processing); }
+  .badge.error { color: var(--error); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--chip); border: 1px solid var(--line); color: var(--fg); }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .chip .x { margin-left: 4px; opacity: .6; }
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .item { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .item .title { font-weight: 600; font-size: 16px; color: var(--fg); }
+  .item .excerpt { margin-top: 6px; color: var(--fg); opacity: .85; font-size: 14px; }
+  .item mark { background: var(--mark); color: inherit; border-radius: 3px; padding: 0 2px; }
+  .pager { display: flex; align-items: center; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+  .reader { max-width: 690px; margin: 0 auto; }
+  .reader .body { font-family: Georgia, "Iowan Old Style", "Times New Roman", serif; font-size: 18px; line-height: 1.7; white-space: pre-wrap; margin: 18px 0 26px; word-wrap: break-word; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; align-items: center; }
+  .note { border-left: 3px solid var(--line); padding: 6px 0 6px 12px; margin: 8px 0; white-space: pre-wrap; }
+  .error-box { color: var(--error); background: var(--card); border: 1px solid var(--error); border-radius: 8px; padding: 8px 10px; margin: 8px 0; font-size: 14px; }
+  .feed { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start; }
+  .feed .name { font-weight: 600; }
+  .feed .url { font-size: 13px; color: var(--muted); word-break: break-all; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .field { display: grid; gap: 4px; margin-bottom: 14px; }
+  .field label { font-weight: 600; font-size: 14px; }
+  .check { display: flex; align-items: center; gap: 8px; }
+  #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 9px 14px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+  #toast.show { opacity: 1; }
+  #toast.err { background: var(--error); color: #fff; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 10px; }
+  @media (max-width: 600px) { .feed { grid-template-columns: 1fr; } .status { margin-left: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <a class="brand" href="#/">OTG-BOT</a>
+    <nav>
+      <a href="#/" data-view="library">Library</a>
+      <a href="#/feeds" data-view="feeds">Feeds</a>
+      <a href="#/settings" data-view="settings">Settings</a>
+    </nav>
+    <div class="status"><span class="dot" id="dot"></span><span id="queue-status">connecting…</span></div>
+  </div>
+</header>
+
+<main id="view"></main>
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+const state = { q: "", status: "", tag: "", limit: 25, offset: 0 };
+const view = document.getElementById("view");
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+// Search snippets carry <mark> highlights from SQLite; everything else is escaped.
+function snippetHtml(text) {
+  return esc(text).replaceAll("&lt;mark&gt;", "<mark>").replaceAll("&lt;/mark&gt;", "</mark>");
+}
+
+function host(url) {
+  try { return new URL(url).hostname; } catch { return url; }
+}
+
+function fmtDate(value) {
+  return value ? new Date(value).toLocaleString() : "—";
+}
+
+function badge(status) {
+  return `<span class="badge ${esc(status)}">${esc(status)}</span>`;
+}
+
+function splitList(text, separator) {
+  return String(text ?? "").split(separator).map((s) => s.trim()).filter(Boolean);
+}
+
+function token() {
+  return localStorage.getItem("otg-token") || "";
+}
+
+function toast(message, isError = false) {
+  const el = document.getElementById("toast");
+  el.textContent = message;
+  el.className = (isError ? "err " : "") + "show";
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => (el.className = ""), 3200);
+}
+
+async function api(path, { method = "GET", json, body, headers = {} } = {}) {
+  const init = { method, headers: { ...headers } };
+  if (method !== "GET" && token()) init.headers.authorization = "Bearer " + token();
+  if (json !== undefined) {
+    init.headers["content-type"] = "application/json";
+    init.body = JSON.stringify(json);
+  } else if (body !== undefined) {
+    init.body = body;
+  }
+  const res = await fetch(path, init);
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) {
+    const message = (data && data.error) || `HTTP ${res.status}`;
+    throw new Error(res.status === 401 ? "unauthorized — add the API token in Settings" : message);
+  }
+  return data;
+}
+
+async function refreshStatus() {
+  try {
+    const q = await api("/queue");
+    const c = q.byStatus || {};
+    $("#dot").classList.add("ok");
+    $("#queue-status").textContent =
+      `ready ${c.ready ?? 0} · queued ${(c.queued ?? 0) + (c.processing ?? 0)} · error ${c.error ?? 0}`;
+  } catch {
+    $("#dot").classList.remove("ok");
+    $("#queue-status").textContent = "offline";
+  }
+}
+
+function setActiveNav(name) {
+  $$("nav a").forEach((a) => a.classList.toggle("active", a.dataset.view === name));
+}
+
+async function route() {
+  const hash = location.hash || "#/";
+  const doc = /^#\/doc\/(\d+)$/.exec(hash);
+  try {
+    if (doc) {
+      setActiveNav("library");
+      await renderReader(Number(doc[1]));
+    } else if (hash === "#/feeds") {
+      setActiveNav("feeds");
+      await renderFeeds();
+    } else if (hash === "#/settings") {
+      setActiveNav("settings");
+      await renderSettings();
+    } else {
+      setActiveNav("library");
+      await renderLibrary();
+    }
+  } catch (err) {
+    view.innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+  }
+  refreshStatus();
+}
+
+// ---------------------------------------------------------------- library
+
+async function renderLibrary() {
+  const params = new URLSearchParams({ limit: state.limit, offset: state.offset });
+  let items;
+  let total = null;
+
+  if (state.q) {
+    params.set("q", state.q);
+    if (state.tag) params.set("tag", state.tag);
+    const res = await api("/search?" + params);
+    items = res.results;
+  } else {
+    if (state.status) params.set("status", state.status);
+    if (state.tag) params.set("tag", state.tag);
+    const res = await api("/documents?" + params);
+    items = res.documents;
+    total = res.total;
+  }
+
+  const from = items.length ? state.offset + 1 : 0;
+  const to = state.offset + items.length;
+
+  view.innerHTML = `
+    <section class="panel">
+      <form id="add-form" class="row">
+        <input type="text" id="add-urls" class="grow" placeholder="Paste URL(s) to save — space or newline separated" autocomplete="off">
+        <input type="text" id="add-tags" placeholder="tags, comma separated" style="width:200px" autocomplete="off">
+        <button class="primary" type="submit">Save</button>
+        <label class="btn" title="Import a browser bookmarks HTML export">
+          Import bookmarks…
+          <input type="file" id="import-file" accept=".html,.htm" hidden>
+        </label>
+      </form>
+    </section>
+
+    <form id="search-form" class="row" style="margin-bottom:12px">
+      <input type="text" id="q" class="grow" placeholder="Search your archive…" value="${esc(state.q)}" autocomplete="off">
+      <select id="status-filter" ${state.q ? "disabled" : ""}>
+        ${["", "ready", "queued", "processing", "error"].map((s) =>
+          `<option value="${s}" ${s === state.status ? "selected" : ""}>${s || "all statuses"}</option>`).join("")}
+      </select>
+      <button type="submit">Search</button>
+      ${state.q || state.tag || state.status ? `<button type="button" id="clear">Clear</button>` : ""}
+    </form>
+
+    ${state.tag ? `<div class="row" style="margin-bottom:10px"><span class="muted">Filtered by tag:</span>
+      <span class="chip active">${esc(state.tag)}<span class="x">✕</span></span></div>` : ""}
+
+    <div class="list">
+      ${items.length ? items.map(renderItem).join("") : `<div class="empty">Nothing here yet. Save a URL above, or import your bookmarks.</div>`}
+    </div>
+
+    <div class="pager">
+      <span class="muted">${items.length ? `${from}–${to}${total !== null ? ` of ${total}` : ""}` : ""}</span>
+      <button id="prev" ${state.offset === 0 ? "disabled" : ""}>← Prev</button>
+      <button id="next" ${items.length < state.limit ? "disabled" : ""}>Next →</button>
+    </div>`;
+
+  bindLibrary();
+}
+
+function renderItem(item) {
+  const title = item.title || item.url;
+  const text = item.snippet ? snippetHtml(item.snippet) : esc(item.excerpt || item.description || "");
+  const tags = item.tags || [];
+  return `
+    <article class="item">
+      <div class="row" style="justify-content:space-between">
+        <a class="title" href="#/doc/${item.id}">${esc(title)}</a>
+        ${badge(item.status)}
+      </div>
+      <div class="meta" style="margin-top:4px">
+        <span>${esc(host(item.url))}</span>
+        ${item.word_count ? `<span>· ${item.word_count} words</span>` : ""}
+        <span>· ${esc(fmtDate(item.created_at))}</span>
+      </div>
+      ${text ? `<div class="excerpt">${text}</div>` : ""}
+      ${tags.length ? `<div class="chips">${tags.map((t) => `<button class="chip" data-tag="${esc(t)}">${esc(t)}</button>`).join("")}</div>` : ""}
+    </article>`;
+}
+
+function bindLibrary() {
+  $("#add-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const urls = splitList($("#add-urls").value, /\s+/);
+    if (!urls.length) return toast("Enter at least one URL", true);
+    const tags = splitList($("#add-tags").value, ",");
+    try {
+      const res = await api("/ingest", { method: "POST", json: { urls, tags } });
+      $("#add-urls").value = "";
+      toast(`Queued ${res.accepted}` + (res.duplicates.length ? ` · ${res.duplicates.length} already saved` : "") +
+        (res.invalid.length ? ` · ${res.invalid.length} invalid` : ""));
+      route();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $("#import-file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const res = await api("/import/bookmarks", {
+        method: "POST", body: text, headers: { "content-type": "text/html" },
+      });
+      toast(`Imported ${res.imported} · ${res.duplicates} already saved · ${res.invalid} skipped`);
+      route();
+    } catch (err) { toast(err.message, true); }
+    e.target.value = "";
+  });
+
+  $("#search-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    state.q = $("#q").value.trim();
+    state.status = $("#status-filter").value;
+    state.offset = 0;
+    route();
+  });
+
+  $("#clear")?.addEventListener("click", () => {
+    Object.assign(state, { q: "", status: "", tag: "", offset: 0 });
+    route();
+  });
+
+  $$(".chip[data-tag]").forEach((chip) => chip.addEventListener("click", () => {
+    state.tag = chip.dataset.tag;
+    state.offset = 0;
+    route();
+  }));
+  $(".chip.active")?.addEventListener("click", () => { state.tag = ""; route(); });
+
+  $("#prev").addEventListener("click", () => {
+    state.offset = Math.max(0, state.offset - state.limit);
+    route();
+  });
+  $("#next").addEventListener("click", () => {
+    state.offset += state.limit;
+    route();
+  });
+}
+
+// ---------------------------------------------------------------- reader
+
+async function renderReader(id) {
+  const d = await api(`/documents/${id}`);
+  const tags = d.tags || [];
+  const notes = d.notes || [];
+
+  view.innerHTML = `
+    <div class="reader">
+      <p><a href="#/">← Library</a></p>
+      <h1>${esc(d.title || d.url)}</h1>
+      <div class="meta">
+        ${badge(d.status)}
+        <span>${esc(host(d.url))}</span>
+        ${d.word_count ? `<span>· ${d.word_count} words · ${d.reading_minutes} min</span>` : ""}
+        ${d.author ? `<span>· ${esc(d.author)}</span>` : ""}
+        <span>· saved ${esc(fmtDate(d.created_at))}</span>
+      </div>
+      <div class="actions">
+        <a class="btn" href="${esc(d.url)}" target="_blank" rel="noopener noreferrer">Original ↗</a>
+        ${d.has_snapshot ? `<a class="btn" href="/documents/${d.id}/raw" target="_blank" rel="noopener">Snapshot ↗</a>` : ""}
+        <button class="danger" id="delete-doc">Delete</button>
+      </div>
+      ${d.status === "error" ? `<div class="error-box">${esc(d.last_error || "Scrape failed")} (attempts: ${d.attempts})</div>` : ""}
+
+      <h3>Tags</h3>
+      <form id="tag-form" class="row">
+        <input type="text" id="tags-input" class="grow" value="${esc(tags.join(", "))}" placeholder="tags, comma separated" autocomplete="off">
+        <button type="submit">Save tags</button>
+      </form>
+
+      <div class="body">${esc(d.content || d.description || "No content yet — the worker has not finished this page.")}</div>
+
+      <h3>Notes</h3>
+      ${notes.length ? notes.map((n) => `
+        <div class="note">
+          ${esc(n.note)}
+          <div class="muted row" style="margin-top:4px">
+            <span>${esc(fmtDate(n.created_at))}</span>
+            <button class="danger" data-note="${n.id}" style="padding:1px 8px;font-size:12px">Delete</button>
+          </div>
+        </div>`).join("") : `<p class="muted">No notes yet.</p>`}
+      <form id="note-form" class="panel" style="margin-top:10px">
+        <textarea id="note-text" placeholder="Write a note about this page…"></textarea>
+        <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="primary" type="submit">Add note</button></div>
+      </form>
+    </div>`;
+
+  $("#tag-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api(`/documents/${id}/tags`, { method: "POST", json: { tags: splitList($("#tags-input").value, ",") } });
+      toast("Tags saved");
+      route();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $("#note-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const note = $("#note-text").value.trim();
+    if (!note) return;
+    try {
+      await api(`/documents/${id}/notes`, { method: "POST", json: { note } });
+      route();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $$("button[data-note]").forEach((btn) => btn.addEventListener("click", async () => {
+    try {
+      await api(`/documents/${id}/notes/${btn.dataset.note}`, { method: "DELETE" });
+      route();
+    } catch (err) { toast(err.message, true); }
+  }));
+
+  $("#delete-doc").addEventListener("click", async () => {
+    if (!confirm("Delete this document, its snapshot, tags and notes?")) return;
+    try {
+      await api(`/documents/${id}`, { method: "DELETE" });
+      toast("Deleted");
+      location.hash = "#/";
+    } catch (err) { toast(err.message, true); }
+  });
+}
+
+// ---------------------------------------------------------------- feeds
+
+function feedStatus(feed) {
+  return feed.last_status || "never";
+}
+
+async function renderFeeds() {
+  const [feeds, settings] = await Promise.all([api("/feeds"), api("/settings")]);
+  const watcherOn = settings.feeds_enabled === "1";
+
+  view.innerHTML = `
+    <h1>Feeds</h1>
+    <p class="muted">RSS and Atom feeds are checked every ${esc(settings.feed_poll_minutes)} min.
+      Watcher is <strong>${watcherOn ? "on" : "off"}</strong> — change this in <a href="#/settings">Settings</a>.
+      New item links are saved automatically and tagged with the feed name.</p>
+
+    <section class="panel">
+      <form id="feed-form" class="row">
+        <input type="url" id="feed-url" class="grow" placeholder="https://example.com/feed.xml" autocomplete="off" required>
+        <button class="primary" type="submit">Add feed</button>
+      </form>
+    </section>
+
+    <div class="list">
+      ${feeds.length ? feeds.map((f) => `
+        <article class="item feed">
+          <div>
+            <div class="name">${esc(f.title || host(f.url))}</div>
+            <div class="url">${esc(f.url)}</div>
+            <div class="meta" style="margin-top:6px">
+              ${badge(feedStatus(f))}
+              <span>· last checked ${esc(fmtDate(f.last_checked_at))}</span>
+              <span>· ${f.items_ingested} item(s) ingested</span>
+            </div>
+            ${f.last_error ? `<div class="error-box">${esc(f.last_error)}</div>` : ""}
+          </div>
+          <div class="row" style="justify-content:flex-end">
+            <label class="toggle"><input type="checkbox" data-toggle="${f.id}" ${f.enabled ? "checked" : ""}> enabled</label>
+            <button data-check="${f.id}">Check now</button>
+            <button class="danger" data-delete="${f.id}">Delete</button>
+          </div>
+        </article>`).join("") : `<div class="empty">No feeds yet. Add an RSS or Atom URL above.</div>`}
+    </div>`;
+
+  $("#feed-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/feeds", { method: "POST", json: { url: $("#feed-url").value.trim() } });
+      toast("Feed added — first check is running");
+      setTimeout(route, 1500);
+      route();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $$("input[data-toggle]").forEach((box) => box.addEventListener("change", async () => {
+    try {
+      await api(`/feeds/${box.dataset.toggle}`, { method: "PATCH", json: { enabled: box.checked } });
+    } catch (err) { toast(err.message, true); }
+  }));
+
+  $$("button[data-check]").forEach((btn) => btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    try {
+      const res = await api(`/feeds/${btn.dataset.check}/check`, { method: "POST" });
+      toast(`${res.status}: ${res.ingested} new item(s)`, res.status === "error");
+      route();
+    } catch (err) { toast(err.message, true); btn.disabled = false; }
+  }));
+
+  $$("button[data-delete]").forEach((btn) => btn.addEventListener("click", async () => {
+    if (!confirm("Remove this feed? Items already saved are kept.")) return;
+    try {
+      await api(`/feeds/${btn.dataset.delete}`, { method: "DELETE" });
+      route();
+    } catch (err) { toast(err.message, true); }
+  }));
+}
+
+// ---------------------------------------------------------------- settings
+
+async function renderSettings() {
+  const s = await api("/settings");
+
+  view.innerHTML = `
+    <h1>Settings</h1>
+    <section class="panel">
+      <h2>Feed watcher</h2>
+      <div class="field">
+        <label for="poll">Check interval (minutes)</label>
+        <input type="number" id="poll" min="1" max="1440" value="${esc(s.feed_poll_minutes)}" style="max-width:160px">
+        <span class="muted">Between 1 and 1440.</span>
+      </div>
+      <div class="check" style="margin-bottom:14px">
+        <input type="checkbox" id="feeds-enabled" ${s.feeds_enabled === "1" ? "checked" : ""}>
+        <label for="feeds-enabled">Watcher enabled</label>
+      </div>
+
+      <h2>Archive</h2>
+      <div class="check" style="margin-bottom:14px">
+        <input type="checkbox" id="snapshots" ${s.snapshots === "1" ? "checked" : ""}>
+        <label for="snapshots">Store raw HTML snapshots for new pages</label>
+      </div>
+      <button class="primary" id="save-settings">Save settings</button>
+    </section>
+
+    <section class="panel">
+      <h2>API token</h2>
+      <p class="muted" style="margin-top:0">Needed for changes only when the server has <code>INGEST_TOKEN</code> set.
+        Stored in this browser only.</p>
+      <form id="token-form" class="row">
+        <input type="password" id="token" class="grow" value="${esc(token())}" placeholder="token (optional)" autocomplete="off">
+        <button type="submit">Save token</button>
+      </form>
+    </section>`;
+
+  $("#save-settings").addEventListener("click", async () => {
+    const minutes = Number($("#poll").value);
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
+      return toast("Interval must be a whole number from 1 to 1440", true);
+    }
+    try {
+      await api("/settings", {
+        method: "PUT",
+        json: {
+          feed_poll_minutes: minutes,
+          feeds_enabled: $("#feeds-enabled").checked ? "1" : "0",
+          snapshots: $("#snapshots").checked ? "1" : "0",
+        },
+      });
+      toast("Settings saved");
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $("#token-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const value = $("#token").value.trim();
+    if (value) localStorage.setItem("otg-token", value);
+    else localStorage.removeItem("otg-token");
+    toast(value ? "Token saved in this browser" : "Token cleared");
+  });
+}
+
+// ---------------------------------------------------------------- boot
+
+window.addEventListener("hashchange", route);
+route();
+setInterval(refreshStatus, 30000);
+</script>
+</body>
+</html>

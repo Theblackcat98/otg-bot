@@ -4208,124 +4208,6 @@ var require_mime_type = __commonJS(function(exports, module) {
 // src/index.ts
 import { timingSafeEqual } from "crypto";
 
-// src/db.ts
-import { Database } from "bun:sqlite";
-import { mkdirSync } from "fs";
-import path from "path";
-var DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.resolve(import.meta.dir, "..", "data");
-mkdirSync(DATA_DIR, { recursive: true });
-var db = new Database(path.join(DATA_DIR, "otg.sqlite"));
-db.run("PRAGMA journal_mode = WAL;");
-db.run("PRAGMA synchronous = NORMAL;");
-db.run("PRAGMA foreign_keys = ON;");
-db.exec(`
-CREATE TABLE IF NOT EXISTS documents (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  url             TEXT    NOT NULL UNIQUE,
-  status          TEXT    NOT NULL DEFAULT 'queued', -- queued | processing | ready | error
-  attempts        INTEGER NOT NULL DEFAULT 0,
-  last_error      TEXT,
-  title           TEXT,
-  description     TEXT,
-  author          TEXT,
-  site_name       TEXT,
-  lang            TEXT,
-  canonical_url   TEXT,
-  image           TEXT,
-  content         TEXT,              -- cleaned article text
-  word_count      INTEGER,
-  reading_minutes INTEGER,
-  raw_metadata    TEXT,              -- JSON: meta tags, link tags, JSON-LD, response info
-  content_type    TEXT,
-  fetched_at      TEXT,
-  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-
--- Search index over title, description and cleaned content.
--- rowid is kept in sync with documents.id.
-CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
-  title,
-  description,
-  content,
-  url UNINDEXED
-);
-
-CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status, id);
-`);
-var NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
-function indexDocument(d) {
-  db.run("DELETE FROM documents_fts WHERE rowid = ?", [d.id]);
-  db.run("INSERT INTO documents_fts (rowid, title, description, content, url) VALUES (?, ?, ?, ?, ?)", [d.id, d.title ?? "", d.description ?? "", d.content ?? "", d.url]);
-}
-function removeDocumentFromIndex(id) {
-  db.run("DELETE FROM documents_fts WHERE rowid = ?", [id]);
-}
-var stmts = {
-  insertIgnore: db.prepare("INSERT OR IGNORE INTO documents (url) VALUES (?)"),
-  getByUrl: db.prepare("SELECT id, url, status FROM documents WHERE url = ?"),
-  getById: db.prepare("SELECT * FROM documents WHERE id = ?"),
-  deleteById: db.prepare("DELETE FROM documents WHERE id = ?"),
-  claimNext: db.prepare(`
-    UPDATE documents
-    SET status = 'processing', attempts = attempts + 1, updated_at = ${NOW}
-    WHERE id = (
-      SELECT id FROM documents
-      WHERE status = 'queued' AND attempts < ?
-      ORDER BY id LIMIT 1
-    )
-    RETURNING *
-  `),
-  markReady: db.prepare(`
-    UPDATE documents SET
-      status = 'ready', title = ?, description = ?, author = ?,
-      site_name = ?, lang = ?, canonical_url = ?, image = ?,
-      content = ?, word_count = ?, reading_minutes = ?,
-      raw_metadata = ?, content_type = ?, last_error = NULL,
-      fetched_at = ${NOW}, updated_at = ${NOW}
-    WHERE id = ?
-  `),
-  markError: db.prepare(`
-    UPDATE documents
-    SET status = ?, last_error = ?, updated_at = ${NOW}
-    WHERE id = ?
-  `),
-  resetProcessing: db.prepare("UPDATE documents SET status = 'queued' WHERE status = 'processing'"),
-  statusCounts: db.prepare("SELECT status, COUNT(*) AS n FROM documents GROUP BY status"),
-  recentErrors: db.prepare(`
-    SELECT id, url, attempts, last_error, updated_at
-    FROM documents WHERE status = 'error'
-    ORDER BY updated_at DESC LIMIT 10
-  `),
-  search: db.prepare(`
-    SELECT d.id, d.url, d.title, d.site_name, d.status, d.word_count,
-           d.created_at,
-           snippet(documents_fts, 2, '<mark>', '</mark>', '\u2026', 16) AS snippet,
-           bm25(documents_fts) AS rank
-    FROM documents_fts
-    JOIN documents d ON d.id = documents_fts.rowid
-    WHERE documents_fts MATCH ?
-    ORDER BY rank
-    LIMIT ? OFFSET ?
-  `)
-};
-function listDocuments(status, limit, offset) {
-  const where = status ? "WHERE status = ?" : "";
-  const sql = `
-    SELECT id, url, status, title, description, site_name, author,
-           word_count, reading_minutes, content_type, fetched_at,
-           created_at, substr(content, 1, 240) AS excerpt
-    FROM documents ${where}
-    ORDER BY id DESC LIMIT ? OFFSET ?
-  `;
-  const params = status ? [status, limit, offset] : [limit, offset];
-  return db.prepare(sql).all(...params);
-}
-function countDocuments(status) {
-  const row = status ? db.prepare("SELECT COUNT(*) AS n FROM documents WHERE status = ?").get(status) : db.prepare("SELECT COUNT(*) AS n FROM documents").get();
-  return Number(row.n);
-}
-
 // node_modules/cheerio/dist/esm/options.js
 var defaultOpts = {
   _useHtmlParser2: false
@@ -17937,6 +17819,301 @@ var STRINGS = {
 // node_modules/cheerio/dist/esm/index.js
 var import_whatwg_mimetype = __toESM(require_mime_type(), 1);
 
+// src/db.ts
+import { Database } from "bun:sqlite";
+import { mkdirSync } from "fs";
+import path from "path";
+var DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.resolve(import.meta.dir, "..", "data");
+mkdirSync(DATA_DIR, { recursive: true });
+var db = new Database(path.join(DATA_DIR, "otg.sqlite"));
+db.run("PRAGMA journal_mode = WAL;");
+db.run("PRAGMA synchronous = NORMAL;");
+db.run("PRAGMA foreign_keys = ON;");
+db.exec(`
+CREATE TABLE IF NOT EXISTS documents (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  url             TEXT    NOT NULL UNIQUE,
+  status          TEXT    NOT NULL DEFAULT 'queued', -- queued | processing | ready | error
+  attempts        INTEGER NOT NULL DEFAULT 0,
+  last_error      TEXT,
+  title           TEXT,
+  description     TEXT,
+  author          TEXT,
+  site_name       TEXT,
+  lang            TEXT,
+  canonical_url   TEXT,
+  image           TEXT,
+  content         TEXT,              -- cleaned article text
+  word_count      INTEGER,
+  reading_minutes INTEGER,
+  raw_metadata    TEXT,              -- JSON: meta tags, link tags, JSON-LD, response info
+  content_type    TEXT,
+  fetched_at      TEXT,
+  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+-- Search index over title, description and cleaned content.
+-- rowid is kept in sync with documents.id.
+CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
+  title,
+  description,
+  content,
+  url UNINDEXED
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status, id);
+
+-- #1 raw page snapshots (full HTML kept alongside cleaned content)
+CREATE TABLE IF NOT EXISTS snapshots (
+  document_id  INTEGER PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+  content_type TEXT,
+  html         TEXT NOT NULL,
+  bytes        INTEGER NOT NULL,
+  fetched_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+-- #10 tagging
+CREATE TABLE IF NOT EXISTS tags (
+  document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  tag         TEXT NOT NULL,
+  PRIMARY KEY (document_id, tag)
+);
+CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag);
+
+-- #10 notes
+CREATE TABLE IF NOT EXISTS notes (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  note        TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+-- #8 RSS/Atom feeds
+CREATE TABLE IF NOT EXISTS feeds (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  url             TEXT    NOT NULL UNIQUE,
+  title           TEXT,
+  enabled         INTEGER NOT NULL DEFAULT 1,
+  etag            TEXT,
+  last_modified   TEXT,
+  last_checked_at TEXT,
+  last_status     TEXT, -- ok | not-modified | error
+  last_error      TEXT,
+  items_ingested  INTEGER NOT NULL DEFAULT 0,
+  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+-- editable runtime settings (managed in the web UI)
+CREATE TABLE IF NOT EXISTS settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+`);
+var NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
+function indexDocument(d) {
+  db.run("DELETE FROM documents_fts WHERE rowid = ?", [d.id]);
+  db.run("INSERT INTO documents_fts (rowid, title, description, content, url) VALUES (?, ?, ?, ?, ?)", [d.id, d.title ?? "", d.description ?? "", d.content ?? "", d.url]);
+}
+function removeDocumentFromIndex(id) {
+  db.run("DELETE FROM documents_fts WHERE rowid = ?", [id]);
+}
+function deleteDocument(id) {
+  const changes = db.run("DELETE FROM documents WHERE id = ?", [id]).changes;
+  if (changes === 0)
+    return false;
+  removeDocumentFromIndex(id);
+  db.run("DELETE FROM snapshots WHERE document_id = ?", [id]);
+  db.run("DELETE FROM tags WHERE document_id = ?", [id]);
+  db.run("DELETE FROM notes WHERE document_id = ?", [id]);
+  return true;
+}
+var stmts = {
+  insertIgnore: db.prepare("INSERT OR IGNORE INTO documents (url) VALUES (?)"),
+  getByUrl: db.prepare("SELECT id, url, status FROM documents WHERE url = ?"),
+  getById: db.prepare("SELECT * FROM documents WHERE id = ?"),
+  deleteById: db.prepare("DELETE FROM documents WHERE id = ?"),
+  claimNext: db.prepare(`
+    UPDATE documents
+    SET status = 'processing', attempts = attempts + 1, updated_at = ${NOW}
+    WHERE id = (
+      SELECT id FROM documents
+      WHERE status = 'queued' AND attempts < ?
+      ORDER BY id LIMIT 1
+    )
+    RETURNING *
+  `),
+  markReady: db.prepare(`
+    UPDATE documents SET
+      status = 'ready', title = ?, description = ?, author = ?,
+      site_name = ?, lang = ?, canonical_url = ?, image = ?,
+      content = ?, word_count = ?, reading_minutes = ?,
+      raw_metadata = ?, content_type = ?, last_error = NULL,
+      fetched_at = ${NOW}, updated_at = ${NOW}
+    WHERE id = ?
+  `),
+  markError: db.prepare(`
+    UPDATE documents
+    SET status = ?, last_error = ?, updated_at = ${NOW}
+    WHERE id = ?
+  `),
+  resetProcessing: db.prepare("UPDATE documents SET status = 'queued' WHERE status = 'processing'"),
+  statusCounts: db.prepare("SELECT status, COUNT(*) AS n FROM documents GROUP BY status"),
+  recentErrors: db.prepare(`
+    SELECT id, url, attempts, last_error, updated_at
+    FROM documents WHERE status = 'error'
+    ORDER BY updated_at DESC LIMIT 10
+  `)
+};
+function insertIgnoreByUrl(url) {
+  return db.run("INSERT OR IGNORE INTO documents (url) VALUES (?)", [url]).changes > 0;
+}
+function hasSnapshot(documentId) {
+  return !!db.prepare("SELECT 1 FROM snapshots WHERE document_id = ?").get(documentId);
+}
+function searchDocuments(match, tag, limit, offset) {
+  const tagClause = tag ? "AND d.id IN (SELECT document_id FROM tags WHERE tag = ?)" : "";
+  const params = tag ? [match, tag, limit, offset] : [match, limit, offset];
+  const rows = db.prepare(`SELECT d.id, d.url, d.title, d.site_name, d.status, d.word_count, d.created_at,
+              snippet(documents_fts, 2, '<mark>', '</mark>', '\u2026', 16) AS snippet,
+              bm25(documents_fts) AS rank,
+              (SELECT group_concat(t.tag, ',') FROM tags t WHERE t.document_id = d.id) AS tags
+       FROM documents_fts
+       JOIN documents d ON d.id = documents_fts.rowid
+       WHERE documents_fts MATCH ? ${tagClause}
+       ORDER BY rank LIMIT ? OFFSET ?`).all(...params);
+  for (const r of rows)
+    r.tags = r.tags ? String(r.tags).split(",") : [];
+  return rows;
+}
+function listDocuments(status, tag, limit, offset) {
+  const where = [];
+  const params = [];
+  if (status) {
+    where.push("d.status = ?");
+    params.push(status);
+  }
+  if (tag) {
+    where.push("EXISTS (SELECT 1 FROM tags ft WHERE ft.document_id = d.id AND ft.tag = ?)");
+    params.push(tag);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const rows = db.prepare(`SELECT d.id, d.url, d.status, d.title, d.description, d.site_name, d.author,
+              d.word_count, d.reading_minutes, d.content_type, d.fetched_at,
+              d.created_at, substr(d.content, 1, 240) AS excerpt,
+              (SELECT group_concat(t.tag, ',') FROM tags t WHERE t.document_id = d.id) AS tags
+       FROM documents d ${whereSql}
+       ORDER BY d.id DESC LIMIT ? OFFSET ?`).all(...params, limit, offset);
+  for (const r of rows)
+    r.tags = r.tags ? String(r.tags).split(",") : [];
+  return rows;
+}
+function countDocuments(status, tag) {
+  const where = [];
+  const params = [];
+  if (status) {
+    where.push("status = ?");
+    params.push(status);
+  }
+  if (tag) {
+    where.push("id IN (SELECT document_id FROM tags WHERE tag = ?)");
+    params.push(tag);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const row = db.prepare(`SELECT COUNT(*) AS n FROM documents ${whereSql}`).get(...params);
+  return Number(row.n);
+}
+function saveSnapshot(documentId, html3, contentType) {
+  db.run(`INSERT INTO snapshots (document_id, content_type, html, bytes)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(document_id) DO UPDATE SET
+       content_type = excluded.content_type, html = excluded.html,
+       bytes = excluded.bytes, fetched_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`, [documentId, contentType, html3, Buffer.byteLength(html3)]);
+}
+function getSnapshot(documentId) {
+  return db.prepare("SELECT html, content_type FROM snapshots WHERE document_id = ?").get(documentId) ?? null;
+}
+function setTags(documentId, tags) {
+  const clean = [
+    ...new Set(tags.map((t) => String(t).trim().toLowerCase().slice(0, 64)).filter((t) => t.length > 0 && t.length <= 64))
+  ].slice(0, 32);
+  db.run("DELETE FROM tags WHERE document_id = ?", [documentId]);
+  for (const t of clean) {
+    db.run("INSERT OR IGNORE INTO tags (document_id, tag) VALUES (?, ?)", [documentId, t]);
+  }
+  return clean;
+}
+function addTag(documentId, tag) {
+  db.run("INSERT OR IGNORE INTO tags (document_id, tag) VALUES (?, ?)", [
+    documentId,
+    tag.trim().toLowerCase().slice(0, 64)
+  ]);
+}
+function getTags(documentId) {
+  return db.prepare("SELECT tag FROM tags WHERE document_id = ? ORDER BY tag").all(documentId).map((r) => r.tag);
+}
+function addNote(documentId, note) {
+  const r = db.prepare("INSERT INTO notes (document_id, note) VALUES (?, ?) RETURNING id, note, created_at").get(documentId, note.trim().slice(0, 8000));
+  return r;
+}
+function listNotes(documentId) {
+  return db.prepare("SELECT id, note, created_at FROM notes WHERE document_id = ? ORDER BY id").all(documentId);
+}
+function deleteNote(documentId, noteId) {
+  return db.run("DELETE FROM notes WHERE id = ? AND document_id = ?", [noteId, documentId]).changes > 0;
+}
+function insertFeed(url) {
+  db.run("INSERT OR IGNORE INTO feeds (url) VALUES (?)", [url]);
+  return db.prepare("SELECT * FROM feeds WHERE url = ?").get(url) ?? null;
+}
+function listFeeds() {
+  return db.prepare("SELECT * FROM feeds ORDER BY id").all();
+}
+function getFeed2(id) {
+  return db.prepare("SELECT * FROM feeds WHERE id = ?").get(id) ?? null;
+}
+function enabledFeeds() {
+  return db.prepare("SELECT * FROM feeds WHERE enabled = 1 ORDER BY id").all();
+}
+function setFeedEnabled(id, enabled) {
+  db.run("UPDATE feeds SET enabled = ? WHERE id = ?", [enabled ? 1 : 0, id]);
+}
+function deleteFeed(id) {
+  return db.run("DELETE FROM feeds WHERE id = ?", [id]).changes > 0;
+}
+function markFeedChecked(id, status, opts = {}) {
+  db.run(`UPDATE feeds SET
+       last_status = ?, last_error = ?, last_checked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+       title = COALESCE(?, title), etag = COALESCE(?, etag), last_modified = COALESCE(?, last_modified),
+       items_ingested = items_ingested + ?
+     WHERE id = ?`, [status, opts.error ?? null, opts.title ?? null, opts.etag ?? null, opts.lastModified ?? null, opts.ingested ?? 0, id]);
+}
+var SETTING_DEFAULTS = {
+  feed_poll_minutes: "15",
+  feeds_enabled: "1",
+  snapshots: "1"
+};
+var SETTING_KEYS = Object.keys(SETTING_DEFAULTS);
+function getSetting(key) {
+  if (!(key in SETTING_DEFAULTS))
+    throw new Error(`unknown setting: ${key}`);
+  const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key);
+  return row?.value ?? SETTING_DEFAULTS[key];
+}
+function setSetting(key, value) {
+  if (!(key in SETTING_DEFAULTS))
+    throw new Error(`unknown setting: ${key}`);
+  db.run("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [key, value]);
+}
+function getSettings() {
+  const out = { ...SETTING_DEFAULTS };
+  for (const row of db.prepare("SELECT key, value FROM settings").all()) {
+    if (row.key in out)
+      out[row.key] = row.value;
+  }
+  return out;
+}
+
 // src/scraper.ts
 var USER_AGENT = process.env.USER_AGENT ?? "Mozilla/5.0 (compatible; OTGBot/1.0; +https://botkeep.cloud)";
 var MAX_CONTENT_CHARS = 400000;
@@ -18080,6 +18257,7 @@ async function fetchAndExtract(url, timeoutMs, maxBytes) {
     canonicalUrl: absolute(url, linkRels["canonical"] ?? metas["og:url"]),
     image: absolute(url, metas["og:image"] ?? metas["twitter:image"]),
     content: text3,
+    html: html3.slice(0, 5000000),
     wordCount,
     readingMinutes: Math.max(1, Math.ceil(wordCount / 200)),
     contentType,
@@ -18100,7 +18278,7 @@ async function fetchAndExtract(url, timeoutMs, maxBytes) {
 
 // src/worker.ts
 var MAX_ATTEMPTS = Number(process.env.MAX_ATTEMPTS ?? 3);
-var CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY ?? 2));
+var CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY ?? 4));
 var POLL_MS = Math.max(250, Number(process.env.POLL_MS ?? 2000));
 var FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.FETCH_TIMEOUT_MS ?? 20000));
 var MAX_BYTES = Math.max(64 * 1024, Number(process.env.MAX_BYTES ?? 5000000));
@@ -18115,6 +18293,7 @@ function recoverInterrupted() {
 function claimNext() {
   return stmts.claimNext.get(MAX_ATTEMPTS) ?? null;
 }
+var snapshotsForcedOff = process.env.SNAPSHOTS === "0";
 async function processOne(doc) {
   try {
     const ex = await fetchAndExtract(doc.url, FETCH_TIMEOUT_MS, MAX_BYTES);
@@ -18126,6 +18305,9 @@ async function processOne(doc) {
       description: ex.description,
       content: ex.content
     });
+    if (!snapshotsForcedOff && getSetting("snapshots") !== "0") {
+      saveSnapshot(doc.id, ex.html, ex.contentType);
+    }
     console.log(`[worker] #${doc.id} ready \u2014 ${doc.url} (${ex.wordCount} words)`);
   } catch (err) {
     const message = err.message ?? String(err);
@@ -18160,14 +18342,759 @@ function stopWorker() {
   timer = null;
 }
 
+// src/feeds.ts
+var FETCH_TIMEOUT_MS2 = 20000;
+var TICK_MS = 60000;
+var USER_AGENT2 = "Mozilla/5.0 (compatible; OTGBot/1.0; +https://botkeep.cloud)";
+var MAX_ITEMS_PER_POLL = 50;
+var timer2 = null;
+var polling = false;
+var lastPollAt = 0;
+function pollIntervalMinutes() {
+  const n = Number(getSetting("feed_poll_minutes"));
+  return Number.isFinite(n) ? Math.min(1440, Math.max(1, Math.round(n))) : 15;
+}
+function normalizeUrl(input) {
+  try {
+    const u = new URL(input.trim());
+    return u.protocol === "http:" || u.protocol === "https:" ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+function parseFeedXml(xml2) {
+  const $2 = load(xml2, { xmlMode: true });
+  const title = $2("rss > channel > title").first().text().trim() || $2("feed > title").first().text().trim() || null;
+  const links = [];
+  const push = (raw) => {
+    if (!raw)
+      return;
+    const href = normalizeUrl(raw);
+    if (href && !links.includes(href) && links.length < MAX_ITEMS_PER_POLL)
+      links.push(href);
+  };
+  $2("item").each((_, item) => {
+    const $item = $2(item);
+    const guid = $item.children("guid").first().text().trim();
+    push($item.children("link").first().text().trim() || $item.attr("rdf:about") || guid);
+  });
+  $2("entry").each((_, entry) => {
+    const $entry = $2(entry);
+    const alt = $entry.children("link").filter((_2, l) => ($2(l).attr("rel") ?? "alternate") === "alternate").first().attr("href");
+    push(alt ?? $entry.children("link").first().attr("href") ?? $entry.children("id").first().text());
+  });
+  return { title, links };
+}
+async function pollFeed(feed) {
+  const headers = { "user-agent": USER_AGENT2, accept: "*/*" };
+  if (feed.etag)
+    headers["if-none-match"] = feed.etag;
+  if (feed.last_modified)
+    headers["if-modified-since"] = feed.last_modified;
+  try {
+    const res = await fetch(feed.url, {
+      headers,
+      redirect: "follow",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS2)
+    });
+    if (res.status === 304) {
+      markFeedChecked(feed.id, "not-modified");
+      return { ingested: 0, status: "not-modified" };
+    }
+    if (!res.ok) {
+      const msg = `HTTP ${res.status} ${res.statusText}`;
+      markFeedChecked(feed.id, "error", { error: msg });
+      return { ingested: 0, status: "error" };
+    }
+    const xml2 = await res.text();
+    const { title, links } = parseFeedXml(xml2);
+    let ingested = 0;
+    for (const link of links) {
+      const isNew = insertIgnoreByUrl(link);
+      if (!isNew)
+        continue;
+      const row = stmts.getByUrl.get(link);
+      if (row) {
+        addTag(row.id, (title ?? new URL(link).hostname).slice(0, 64));
+        ingested++;
+      }
+    }
+    if (ingested > 0)
+      kick();
+    markFeedChecked(feed.id, "ok", {
+      title,
+      etag: res.headers.get("etag"),
+      lastModified: res.headers.get("last-modified"),
+      ingested
+    });
+    return { ingested, status: "ok" };
+  } catch (err) {
+    const msg = (err.message ?? String(err)).slice(0, 300);
+    markFeedChecked(feed.id, "error", { error: msg });
+    return { ingested: 0, status: "error" };
+  }
+}
+async function pollAllFeeds() {
+  polling = true;
+  try {
+    const feeds2 = enabledFeeds();
+    let total = 0;
+    for (const feed of feeds2) {
+      const r = await pollFeed(feed);
+      total += r.ingested;
+    }
+    if (feeds2.length > 0) {
+      console.log(`[feeds] checked ${feeds2.length} feed(s), ${total} new item(s)`);
+    }
+  } finally {
+    polling = false;
+    lastPollAt = Date.now();
+  }
+}
+async function tick2() {
+  if (polling)
+    return;
+  if (getSetting("feeds_enabled") === "0")
+    return;
+  const due = Date.now() - lastPollAt >= pollIntervalMinutes() * 60000;
+  if (!due)
+    return;
+  await pollAllFeeds();
+}
+function startFeeds() {
+  timer2 = setInterval(() => void tick2(), TICK_MS);
+  const enabled = getSetting("feeds_enabled") !== "0";
+  console.log(`[feeds] watcher ${enabled ? "enabled" : "disabled"} (interval: ${pollIntervalMinutes()} min)`);
+}
+function stopFeeds() {
+  if (timer2)
+    clearInterval(timer2);
+  timer2 = null;
+}
+async function checkFeedNow(id) {
+  const feed = getFeed2(id);
+  if (!feed)
+    return null;
+  return pollFeed(feed);
+}
+
+// src/ui.html
+var ui_default = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OTG-BOT \xB7 Keeper</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f6f6f3; --fg: #1c1c1a; --muted: #6d6d67; --line: #e1e1db; --card: #ffffff;
+    --accent: #2f6fdb; --ready: #2e7d4f; --queued: #a86b12; --processing: #2b6cb0;
+    --error: #c03030; --mark: #fff0a0; --chip: #ecece6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --fg: #e9e8e3; --muted: #9a9991; --line: #2b2b28; --card: #1d1d1b;
+      --accent: #7aa7ff; --ready: #5fbf85; --queued: #e0a64b; --processing: #7fb1ec;
+      --error: #ff7b7b; --mark: #5b4d12; --chip: #2a2a27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .bar { max-width: 980px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .brand { font-weight: 700; letter-spacing: .04em; color: var(--fg); }
+  nav { display: flex; gap: 4px; }
+  nav a { color: var(--muted); padding: 5px 10px; border-radius: 7px; }
+  nav a.active, nav a:hover { color: var(--fg); background: var(--card); text-decoration: none; }
+  .status { margin-left: auto; font-size: 13px; color: var(--muted); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--error); margin-right: 6px; vertical-align: middle; }
+  .dot.ok { background: var(--ready); }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 80px; }
+  h1 { font-size: 22px; margin: 4px 0 6px; line-height: 1.3; }
+  h2 { font-size: 16px; margin: 0 0 10px; }
+  h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius, 10px); padding: 14px; margin-bottom: 14px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .grow { flex: 1 1 260px; }
+  input[type=text], input[type=url], input[type=password], input[type=number], select, textarea {
+    font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; min-width: 0;
+  }
+  textarea { width: 100%; min-height: 70px; resize: vertical; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button, .btn {
+    font: inherit; cursor: pointer; color: var(--fg); background: var(--chip); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  }
+  button:hover, .btn:hover { text-decoration: none; filter: brightness(1.05); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--error); }
+  button:disabled { opacity: .5; cursor: default; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .meta { color: var(--muted); font-size: 13px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .badge { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor; }
+  .badge.ready, .badge.ok { color: var(--ready); }
+  .badge.queued, .badge.pending, .badge.never { color: var(--queued); }
+  .badge.processing, .badge.not-modified { color: var(--processing); }
+  .badge.error { color: var(--error); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--chip); border: 1px solid var(--line); color: var(--fg); }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .chip .x { margin-left: 4px; opacity: .6; }
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .item { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .item .title { font-weight: 600; font-size: 16px; color: var(--fg); }
+  .item .excerpt { margin-top: 6px; color: var(--fg); opacity: .85; font-size: 14px; }
+  .item mark { background: var(--mark); color: inherit; border-radius: 3px; padding: 0 2px; }
+  .pager { display: flex; align-items: center; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+  .reader { max-width: 690px; margin: 0 auto; }
+  .reader .body { font-family: Georgia, "Iowan Old Style", "Times New Roman", serif; font-size: 18px; line-height: 1.7; white-space: pre-wrap; margin: 18px 0 26px; word-wrap: break-word; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; align-items: center; }
+  .note { border-left: 3px solid var(--line); padding: 6px 0 6px 12px; margin: 8px 0; white-space: pre-wrap; }
+  .error-box { color: var(--error); background: var(--card); border: 1px solid var(--error); border-radius: 8px; padding: 8px 10px; margin: 8px 0; font-size: 14px; }
+  .feed { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start; }
+  .feed .name { font-weight: 600; }
+  .feed .url { font-size: 13px; color: var(--muted); word-break: break-all; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .field { display: grid; gap: 4px; margin-bottom: 14px; }
+  .field label { font-weight: 600; font-size: 14px; }
+  .check { display: flex; align-items: center; gap: 8px; }
+  #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 9px 14px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+  #toast.show { opacity: 1; }
+  #toast.err { background: var(--error); color: #fff; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 10px; }
+  @media (max-width: 600px) { .feed { grid-template-columns: 1fr; } .status { margin-left: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <a class="brand" href="#/">OTG-BOT</a>
+    <nav>
+      <a href="#/" data-view="library">Library</a>
+      <a href="#/feeds" data-view="feeds">Feeds</a>
+      <a href="#/settings" data-view="settings">Settings</a>
+    </nav>
+    <div class="status"><span class="dot" id="dot"></span><span id="queue-status">connecting\u2026</span></div>
+  </div>
+</header>
+
+<main id="view"></main>
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+const state = { q: "", status: "", tag: "", limit: 25, offset: 0 };
+const view = document.getElementById("view");
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+// Search snippets carry <mark> highlights from SQLite; everything else is escaped.
+function snippetHtml(text) {
+  return esc(text).replaceAll("&lt;mark&gt;", "<mark>").replaceAll("&lt;/mark&gt;", "</mark>");
+}
+
+function host(url) {
+  try { return new URL(url).hostname; } catch { return url; }
+}
+
+function fmtDate(value) {
+  return value ? new Date(value).toLocaleString() : "\u2014";
+}
+
+function badge(status) {
+  return \`<span class="badge \${esc(status)}">\${esc(status)}</span>\`;
+}
+
+function splitList(text, separator) {
+  return String(text ?? "").split(separator).map((s) => s.trim()).filter(Boolean);
+}
+
+function token() {
+  return localStorage.getItem("otg-token") || "";
+}
+
+function toast(message, isError = false) {
+  const el = document.getElementById("toast");
+  el.textContent = message;
+  el.className = (isError ? "err " : "") + "show";
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => (el.className = ""), 3200);
+}
+
+async function api(path, { method = "GET", json, body, headers = {} } = {}) {
+  const init = { method, headers: { ...headers } };
+  if (method !== "GET" && token()) init.headers.authorization = "Bearer " + token();
+  if (json !== undefined) {
+    init.headers["content-type"] = "application/json";
+    init.body = JSON.stringify(json);
+  } else if (body !== undefined) {
+    init.body = body;
+  }
+  const res = await fetch(path, init);
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) {
+    const message = (data && data.error) || \`HTTP \${res.status}\`;
+    throw new Error(res.status === 401 ? "unauthorized \u2014 add the API token in Settings" : message);
+  }
+  return data;
+}
+
+async function refreshStatus() {
+  try {
+    const q = await api("/queue");
+    const c = q.byStatus || {};
+    $("#dot").classList.add("ok");
+    $("#queue-status").textContent =
+      \`ready \${c.ready ?? 0} \xB7 queued \${(c.queued ?? 0) + (c.processing ?? 0)} \xB7 error \${c.error ?? 0}\`;
+  } catch {
+    $("#dot").classList.remove("ok");
+    $("#queue-status").textContent = "offline";
+  }
+}
+
+function setActiveNav(name) {
+  $$("nav a").forEach((a) => a.classList.toggle("active", a.dataset.view === name));
+}
+
+async function route() {
+  const hash = location.hash || "#/";
+  const doc = /^#\\/doc\\/(\\d+)$/.exec(hash);
+  try {
+    if (doc) {
+      setActiveNav("library");
+      await renderReader(Number(doc[1]));
+    } else if (hash === "#/feeds") {
+      setActiveNav("feeds");
+      await renderFeeds();
+    } else if (hash === "#/settings") {
+      setActiveNav("settings");
+      await renderSettings();
+    } else {
+      setActiveNav("library");
+      await renderLibrary();
+    }
+  } catch (err) {
+    view.innerHTML = \`<div class="empty">\${esc(err.message)}</div>\`;
+  }
+  refreshStatus();
+}
+
+// ---------------------------------------------------------------- library
+
+async function renderLibrary() {
+  const params = new URLSearchParams({ limit: state.limit, offset: state.offset });
+  let items;
+  let total = null;
+
+  if (state.q) {
+    params.set("q", state.q);
+    if (state.tag) params.set("tag", state.tag);
+    const res = await api("/search?" + params);
+    items = res.results;
+  } else {
+    if (state.status) params.set("status", state.status);
+    if (state.tag) params.set("tag", state.tag);
+    const res = await api("/documents?" + params);
+    items = res.documents;
+    total = res.total;
+  }
+
+  const from = items.length ? state.offset + 1 : 0;
+  const to = state.offset + items.length;
+
+  view.innerHTML = \`
+    <section class="panel">
+      <form id="add-form" class="row">
+        <input type="text" id="add-urls" class="grow" placeholder="Paste URL(s) to save \u2014 space or newline separated" autocomplete="off">
+        <input type="text" id="add-tags" placeholder="tags, comma separated" style="width:200px" autocomplete="off">
+        <button class="primary" type="submit">Save</button>
+        <label class="btn" title="Import a browser bookmarks HTML export">
+          Import bookmarks\u2026
+          <input type="file" id="import-file" accept=".html,.htm" hidden>
+        </label>
+      </form>
+    </section>
+
+    <form id="search-form" class="row" style="margin-bottom:12px">
+      <input type="text" id="q" class="grow" placeholder="Search your archive\u2026" value="\${esc(state.q)}" autocomplete="off">
+      <select id="status-filter" \${state.q ? "disabled" : ""}>
+        \${["", "ready", "queued", "processing", "error"].map((s) =>
+          \`<option value="\${s}" \${s === state.status ? "selected" : ""}>\${s || "all statuses"}</option>\`).join("")}
+      </select>
+      <button type="submit">Search</button>
+      \${state.q || state.tag || state.status ? \`<button type="button" id="clear">Clear</button>\` : ""}
+    </form>
+
+    \${state.tag ? \`<div class="row" style="margin-bottom:10px"><span class="muted">Filtered by tag:</span>
+      <span class="chip active">\${esc(state.tag)}<span class="x">\u2715</span></span></div>\` : ""}
+
+    <div class="list">
+      \${items.length ? items.map(renderItem).join("") : \`<div class="empty">Nothing here yet. Save a URL above, or import your bookmarks.</div>\`}
+    </div>
+
+    <div class="pager">
+      <span class="muted">\${items.length ? \`\${from}\u2013\${to}\${total !== null ? \` of \${total}\` : ""}\` : ""}</span>
+      <button id="prev" \${state.offset === 0 ? "disabled" : ""}>\u2190 Prev</button>
+      <button id="next" \${items.length < state.limit ? "disabled" : ""}>Next \u2192</button>
+    </div>\`;
+
+  bindLibrary();
+}
+
+function renderItem(item) {
+  const title = item.title || item.url;
+  const text = item.snippet ? snippetHtml(item.snippet) : esc(item.excerpt || item.description || "");
+  const tags = item.tags || [];
+  return \`
+    <article class="item">
+      <div class="row" style="justify-content:space-between">
+        <a class="title" href="#/doc/\${item.id}">\${esc(title)}</a>
+        \${badge(item.status)}
+      </div>
+      <div class="meta" style="margin-top:4px">
+        <span>\${esc(host(item.url))}</span>
+        \${item.word_count ? \`<span>\xB7 \${item.word_count} words</span>\` : ""}
+        <span>\xB7 \${esc(fmtDate(item.created_at))}</span>
+      </div>
+      \${text ? \`<div class="excerpt">\${text}</div>\` : ""}
+      \${tags.length ? \`<div class="chips">\${tags.map((t) => \`<button class="chip" data-tag="\${esc(t)}">\${esc(t)}</button>\`).join("")}</div>\` : ""}
+    </article>\`;
+}
+
+function bindLibrary() {
+  $("#add-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const urls = splitList($("#add-urls").value, /\\s+/);
+    if (!urls.length) return toast("Enter at least one URL", true);
+    const tags = splitList($("#add-tags").value, ",");
+    try {
+      const res = await api("/ingest", { method: "POST", json: { urls, tags } });
+      $("#add-urls").value = "";
+      toast(\`Queued \${res.accepted}\` + (res.duplicates.length ? \` \xB7 \${res.duplicates.length} already saved\` : "") +
+        (res.invalid.length ? \` \xB7 \${res.invalid.length} invalid\` : ""));
+      route();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $("#import-file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const res = await api("/import/bookmarks", {
+        method: "POST", body: text, headers: { "content-type": "text/html" },
+      });
+      toast(\`Imported \${res.imported} \xB7 \${res.duplicates} already saved \xB7 \${res.invalid} skipped\`);
+      route();
+    } catch (err) { toast(err.message, true); }
+    e.target.value = "";
+  });
+
+  $("#search-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    state.q = $("#q").value.trim();
+    state.status = $("#status-filter").value;
+    state.offset = 0;
+    route();
+  });
+
+  $("#clear")?.addEventListener("click", () => {
+    Object.assign(state, { q: "", status: "", tag: "", offset: 0 });
+    route();
+  });
+
+  $$(".chip[data-tag]").forEach((chip) => chip.addEventListener("click", () => {
+    state.tag = chip.dataset.tag;
+    state.offset = 0;
+    route();
+  }));
+  $(".chip.active")?.addEventListener("click", () => { state.tag = ""; route(); });
+
+  $("#prev").addEventListener("click", () => {
+    state.offset = Math.max(0, state.offset - state.limit);
+    route();
+  });
+  $("#next").addEventListener("click", () => {
+    state.offset += state.limit;
+    route();
+  });
+}
+
+// ---------------------------------------------------------------- reader
+
+async function renderReader(id) {
+  const d = await api(\`/documents/\${id}\`);
+  const tags = d.tags || [];
+  const notes = d.notes || [];
+
+  view.innerHTML = \`
+    <div class="reader">
+      <p><a href="#/">\u2190 Library</a></p>
+      <h1>\${esc(d.title || d.url)}</h1>
+      <div class="meta">
+        \${badge(d.status)}
+        <span>\${esc(host(d.url))}</span>
+        \${d.word_count ? \`<span>\xB7 \${d.word_count} words \xB7 \${d.reading_minutes} min</span>\` : ""}
+        \${d.author ? \`<span>\xB7 \${esc(d.author)}</span>\` : ""}
+        <span>\xB7 saved \${esc(fmtDate(d.created_at))}</span>
+      </div>
+      <div class="actions">
+        <a class="btn" href="\${esc(d.url)}" target="_blank" rel="noopener noreferrer">Original \u2197</a>
+        \${d.has_snapshot ? \`<a class="btn" href="/documents/\${d.id}/raw" target="_blank" rel="noopener">Snapshot \u2197</a>\` : ""}
+        <button class="danger" id="delete-doc">Delete</button>
+      </div>
+      \${d.status === "error" ? \`<div class="error-box">\${esc(d.last_error || "Scrape failed")} (attempts: \${d.attempts})</div>\` : ""}
+
+      <h3>Tags</h3>
+      <form id="tag-form" class="row">
+        <input type="text" id="tags-input" class="grow" value="\${esc(tags.join(", "))}" placeholder="tags, comma separated" autocomplete="off">
+        <button type="submit">Save tags</button>
+      </form>
+
+      <div class="body">\${esc(d.content || d.description || "No content yet \u2014 the worker has not finished this page.")}</div>
+
+      <h3>Notes</h3>
+      \${notes.length ? notes.map((n) => \`
+        <div class="note">
+          \${esc(n.note)}
+          <div class="muted row" style="margin-top:4px">
+            <span>\${esc(fmtDate(n.created_at))}</span>
+            <button class="danger" data-note="\${n.id}" style="padding:1px 8px;font-size:12px">Delete</button>
+          </div>
+        </div>\`).join("") : \`<p class="muted">No notes yet.</p>\`}
+      <form id="note-form" class="panel" style="margin-top:10px">
+        <textarea id="note-text" placeholder="Write a note about this page\u2026"></textarea>
+        <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="primary" type="submit">Add note</button></div>
+      </form>
+    </div>\`;
+
+  $("#tag-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api(\`/documents/\${id}/tags\`, { method: "POST", json: { tags: splitList($("#tags-input").value, ",") } });
+      toast("Tags saved");
+      route();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $("#note-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const note = $("#note-text").value.trim();
+    if (!note) return;
+    try {
+      await api(\`/documents/\${id}/notes\`, { method: "POST", json: { note } });
+      route();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $$("button[data-note]").forEach((btn) => btn.addEventListener("click", async () => {
+    try {
+      await api(\`/documents/\${id}/notes/\${btn.dataset.note}\`, { method: "DELETE" });
+      route();
+    } catch (err) { toast(err.message, true); }
+  }));
+
+  $("#delete-doc").addEventListener("click", async () => {
+    if (!confirm("Delete this document, its snapshot, tags and notes?")) return;
+    try {
+      await api(\`/documents/\${id}\`, { method: "DELETE" });
+      toast("Deleted");
+      location.hash = "#/";
+    } catch (err) { toast(err.message, true); }
+  });
+}
+
+// ---------------------------------------------------------------- feeds
+
+function feedStatus(feed) {
+  return feed.last_status || "never";
+}
+
+async function renderFeeds() {
+  const [feeds, settings] = await Promise.all([api("/feeds"), api("/settings")]);
+  const watcherOn = settings.feeds_enabled === "1";
+
+  view.innerHTML = \`
+    <h1>Feeds</h1>
+    <p class="muted">RSS and Atom feeds are checked every \${esc(settings.feed_poll_minutes)} min.
+      Watcher is <strong>\${watcherOn ? "on" : "off"}</strong> \u2014 change this in <a href="#/settings">Settings</a>.
+      New item links are saved automatically and tagged with the feed name.</p>
+
+    <section class="panel">
+      <form id="feed-form" class="row">
+        <input type="url" id="feed-url" class="grow" placeholder="https://example.com/feed.xml" autocomplete="off" required>
+        <button class="primary" type="submit">Add feed</button>
+      </form>
+    </section>
+
+    <div class="list">
+      \${feeds.length ? feeds.map((f) => \`
+        <article class="item feed">
+          <div>
+            <div class="name">\${esc(f.title || host(f.url))}</div>
+            <div class="url">\${esc(f.url)}</div>
+            <div class="meta" style="margin-top:6px">
+              \${badge(feedStatus(f))}
+              <span>\xB7 last checked \${esc(fmtDate(f.last_checked_at))}</span>
+              <span>\xB7 \${f.items_ingested} item(s) ingested</span>
+            </div>
+            \${f.last_error ? \`<div class="error-box">\${esc(f.last_error)}</div>\` : ""}
+          </div>
+          <div class="row" style="justify-content:flex-end">
+            <label class="toggle"><input type="checkbox" data-toggle="\${f.id}" \${f.enabled ? "checked" : ""}> enabled</label>
+            <button data-check="\${f.id}">Check now</button>
+            <button class="danger" data-delete="\${f.id}">Delete</button>
+          </div>
+        </article>\`).join("") : \`<div class="empty">No feeds yet. Add an RSS or Atom URL above.</div>\`}
+    </div>\`;
+
+  $("#feed-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/feeds", { method: "POST", json: { url: $("#feed-url").value.trim() } });
+      toast("Feed added \u2014 first check is running");
+      setTimeout(route, 1500);
+      route();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $$("input[data-toggle]").forEach((box) => box.addEventListener("change", async () => {
+    try {
+      await api(\`/feeds/\${box.dataset.toggle}\`, { method: "PATCH", json: { enabled: box.checked } });
+    } catch (err) { toast(err.message, true); }
+  }));
+
+  $$("button[data-check]").forEach((btn) => btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    try {
+      const res = await api(\`/feeds/\${btn.dataset.check}/check\`, { method: "POST" });
+      toast(\`\${res.status}: \${res.ingested} new item(s)\`, res.status === "error");
+      route();
+    } catch (err) { toast(err.message, true); btn.disabled = false; }
+  }));
+
+  $$("button[data-delete]").forEach((btn) => btn.addEventListener("click", async () => {
+    if (!confirm("Remove this feed? Items already saved are kept.")) return;
+    try {
+      await api(\`/feeds/\${btn.dataset.delete}\`, { method: "DELETE" });
+      route();
+    } catch (err) { toast(err.message, true); }
+  }));
+}
+
+// ---------------------------------------------------------------- settings
+
+async function renderSettings() {
+  const s = await api("/settings");
+
+  view.innerHTML = \`
+    <h1>Settings</h1>
+    <section class="panel">
+      <h2>Feed watcher</h2>
+      <div class="field">
+        <label for="poll">Check interval (minutes)</label>
+        <input type="number" id="poll" min="1" max="1440" value="\${esc(s.feed_poll_minutes)}" style="max-width:160px">
+        <span class="muted">Between 1 and 1440.</span>
+      </div>
+      <div class="check" style="margin-bottom:14px">
+        <input type="checkbox" id="feeds-enabled" \${s.feeds_enabled === "1" ? "checked" : ""}>
+        <label for="feeds-enabled">Watcher enabled</label>
+      </div>
+
+      <h2>Archive</h2>
+      <div class="check" style="margin-bottom:14px">
+        <input type="checkbox" id="snapshots" \${s.snapshots === "1" ? "checked" : ""}>
+        <label for="snapshots">Store raw HTML snapshots for new pages</label>
+      </div>
+      <button class="primary" id="save-settings">Save settings</button>
+    </section>
+
+    <section class="panel">
+      <h2>API token</h2>
+      <p class="muted" style="margin-top:0">Needed for changes only when the server has <code>INGEST_TOKEN</code> set.
+        Stored in this browser only.</p>
+      <form id="token-form" class="row">
+        <input type="password" id="token" class="grow" value="\${esc(token())}" placeholder="token (optional)" autocomplete="off">
+        <button type="submit">Save token</button>
+      </form>
+    </section>\`;
+
+  $("#save-settings").addEventListener("click", async () => {
+    const minutes = Number($("#poll").value);
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
+      return toast("Interval must be a whole number from 1 to 1440", true);
+    }
+    try {
+      await api("/settings", {
+        method: "PUT",
+        json: {
+          feed_poll_minutes: minutes,
+          feeds_enabled: $("#feeds-enabled").checked ? "1" : "0",
+          snapshots: $("#snapshots").checked ? "1" : "0",
+        },
+      });
+      toast("Settings saved");
+    } catch (err) { toast(err.message, true); }
+  });
+
+  $("#token-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const value = $("#token").value.trim();
+    if (value) localStorage.setItem("otg-token", value);
+    else localStorage.removeItem("otg-token");
+    toast(value ? "Token saved in this browser" : "Token cleared");
+  });
+}
+
+// ---------------------------------------------------------------- boot
+
+window.addEventListener("hashchange", route);
+route();
+setInterval(refreshStatus, 30000);
+</script>
+</body>
+</html>
+`;
+
 // src/index.ts
 var PORT = Number(process.env.SERVER_PORT ?? process.env.PORT ?? 3000);
 var INGEST_TOKEN = process.env.INGEST_TOKEN || null;
+var VERSION = "1.1.0";
 var MAX_BATCH = 25;
+var MAX_IMPORT = 1e4;
+var SKIP_FOLDERS = new Set([
+  "bookmarks bar",
+  "bookmarks toolbar",
+  "bookmarks menu",
+  "other bookmarks",
+  "mobile bookmarks"
+]);
 var startedAt = Date.now();
+
+class HttpError extends Error {
+  status;
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
 var CORS = {
   "access-control-allow-origin": "*",
-  "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
+  "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "access-control-allow-headers": "content-type, authorization"
 };
 function json(data2, status = 200) {
@@ -18191,7 +19118,7 @@ function authorized(req, url) {
   const token = url.searchParams.get("token");
   return !!token && safeEqual(token, INGEST_TOKEN);
 }
-function normalizeUrl(input) {
+function normalizeUrl2(input) {
   if (typeof input !== "string")
     return null;
   const trimmed = input.trim();
@@ -18204,138 +19131,333 @@ function normalizeUrl(input) {
     return null;
   }
 }
+function splitTags(input) {
+  if (Array.isArray(input))
+    return input.map((t) => String(t).trim()).filter(Boolean);
+  if (typeof input === "string")
+    return input.split(",").map((t) => t.trim()).filter(Boolean);
+  return [];
+}
 function clamp(n, min, max) {
   return Math.min(max, Math.max(min, Math.round(n)));
 }
-async function handleIngest(req, url) {
-  if (!authorized(req, url)) {
-    return json({ error: "unauthorized" }, 401);
+function escapeAttr(s) {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+async function readJson(req) {
+  const data2 = await req.json();
+  if (!data2 || typeof data2 !== "object" || Array.isArray(data2)) {
+    throw new HttpError(400, "expected a JSON object");
   }
-  let raw = [];
+  return data2;
+}
+function saveUrls(urls, tags) {
+  const queued = [];
+  const duplicates = [];
+  for (const url of urls) {
+    const isNew = insertIgnoreByUrl(url);
+    const row = stmts.getByUrl.get(url);
+    if (!row)
+      continue;
+    for (const tag of tags)
+      addTag(row.id, tag);
+    if (isNew)
+      queued.push({ id: row.id, url: row.url });
+    else
+      duplicates.push(url);
+  }
+  if (queued.length > 0)
+    kick();
+  return { queued, duplicates };
+}
+async function handleIngest(req, url) {
+  let raw;
+  let tags;
   if (req.method === "GET") {
     raw = [url.searchParams.get("url") ?? url.searchParams.get("u")];
+    tags = splitTags(url.searchParams.get("tags"));
   } else {
     const body = await req.text();
     const ct = req.headers.get("content-type") ?? "";
-    try {
-      if (ct.includes("application/json")) {
-        const parsed = JSON.parse(body);
-        if (Array.isArray(parsed))
-          raw = parsed;
-        else if (Array.isArray(parsed?.urls))
-          raw = parsed.urls;
-        else
-          raw = [parsed?.url];
-      } else if (ct.includes("x-www-form-urlencoded")) {
-        const params = new URLSearchParams(body);
-        raw = [...params.getAll("url"), ...params.getAll("urls")];
+    if (ct.includes("application/json")) {
+      const parsed = JSON.parse(body);
+      if (Array.isArray(parsed)) {
+        raw = parsed;
+        tags = [];
       } else {
-        raw = body.split(/\s+/);
+        raw = Array.isArray(parsed?.urls) ? parsed.urls : [parsed?.url];
+        tags = splitTags(parsed?.tags);
       }
-    } catch {
-      return json({ error: "malformed request body" }, 400);
+    } else if (ct.includes("x-www-form-urlencoded")) {
+      const params = new URLSearchParams(body);
+      raw = [...params.getAll("url"), ...params.getAll("urls").flatMap((s) => s.split(/\s+/))];
+      tags = splitTags(params.get("tags"));
+    } else {
+      raw = body.split(/\s+/);
+      tags = splitTags(url.searchParams.get("tags"));
     }
   }
   const invalid = [];
   const candidates = [];
   for (const item of raw) {
-    const normalized = normalizeUrl(item);
+    const normalized = normalizeUrl2(item);
     if (normalized)
       candidates.push(normalized);
-    else if (item != null && item !== "")
+    else if (item != null && String(item) !== "")
       invalid.push(String(item));
   }
-  const unique = [...new Set(candidates)].slice(0, MAX_BATCH);
-  const overflow = candidates.length - unique.length;
-  const knownBefore = new Set;
-  for (const c of unique) {
-    if (stmts.getByUrl.get(c))
-      knownBefore.add(c);
+  if (candidates.length === 0 && invalid.length === 0) {
+    throw new HttpError(400, "no URL provided");
   }
-  for (const c of unique)
-    stmts.insertIgnore.run(c);
-  const queued = [];
-  const duplicates = [];
-  for (const c of unique) {
-    const row = stmts.getByUrl.get(c);
-    if (!row)
+  const unique = [...new Set(candidates)];
+  const batch = unique.slice(0, MAX_BATCH);
+  const outcome = saveUrls(batch, tags);
+  return json({
+    accepted: outcome.queued.length,
+    queued: outcome.queued,
+    duplicates: outcome.duplicates,
+    invalid,
+    tags,
+    overflowSkipped: unique.length - batch.length
+  }, 202);
+}
+function parseBookmarks(html3) {
+  const $2 = load(html3);
+  const folderName = ($dl) => {
+    const candidates = [
+      $dl.prev("h3"),
+      $dl.prevAll("dt").first().children("h3"),
+      $dl.parent("dt").children("h3")
+    ];
+    for (const c of candidates) {
+      const name = c.first().text().trim().toLowerCase();
+      if (name)
+        return name;
+    }
+    return "";
+  };
+  const out = [];
+  $2("a[href]").each((_, el) => {
+    const tags = [];
+    $2(el).parents("dl").each((_2, dl) => {
+      const folder = folderName($2(dl));
+      if (folder && !SKIP_FOLDERS.has(folder))
+        tags.push(folder);
+    });
+    out.push({ url: $2(el).attr("href") ?? "", tags: [...new Set(tags)] });
+  });
+  return out;
+}
+async function handleImport(req) {
+  const entries = parseBookmarks(await req.text());
+  const seen = new Set;
+  let imported = 0;
+  let duplicates = 0;
+  let invalid = 0;
+  for (const entry of entries.slice(0, MAX_IMPORT)) {
+    const url = normalizeUrl2(entry.url);
+    if (!url) {
+      invalid++;
       continue;
-    if (knownBefore.has(c))
-      duplicates.push(c);
+    }
+    if (seen.has(url)) {
+      duplicates++;
+      continue;
+    }
+    seen.add(url);
+    const isNew = insertIgnoreByUrl(url);
+    const row = stmts.getByUrl.get(url);
+    if (row) {
+      for (const tag of entry.tags)
+        addTag(row.id, tag);
+    }
+    if (isNew)
+      imported++;
     else
-      queued.push(row);
+      duplicates++;
   }
-  if (queued.length > 0)
+  if (imported > 0)
     kick();
-  const result = {
-    accepted: queued.length,
-    queued,
+  return json({
+    found: entries.length,
+    imported,
     duplicates,
     invalid,
-    overflowSkipped: Math.max(0, overflow)
-  };
-  return json(result, 202);
+    truncated: entries.length > MAX_IMPORT
+  });
 }
+function documentDetail(id) {
+  const row = stmts.getById.get(id);
+  if (!row)
+    return null;
+  return {
+    ...row,
+    raw_metadata: row.raw_metadata ? JSON.parse(row.raw_metadata) : null,
+    tags: getTags(id),
+    notes: listNotes(id),
+    has_snapshot: hasSnapshot(id)
+  };
+}
+function serveSnapshot(id) {
+  const doc = stmts.getById.get(id);
+  const snap = getSnapshot(id);
+  if (!doc || !snap)
+    return json({ error: "snapshot not found" }, 404);
+  const headers = {
+    "content-security-policy": "sandbox",
+    "x-content-type-options": "nosniff",
+    "cache-control": "private, max-age=300",
+    ...CORS
+  };
+  if (!/html/i.test(snap.content_type ?? "")) {
+    return new Response(snap.html, {
+      headers: { ...headers, "content-type": "text/plain; charset=utf-8" }
+    });
+  }
+  const base = `<base href="${escapeAttr(doc.url)}">`;
+  const html3 = /<head[^>]*>/i.test(snap.html) ? snap.html.replace(/<head([^>]*)>/i, (_, attrs) => `<head${attrs}>${base}`) : base + snap.html;
+  return new Response(html3, {
+    headers: { ...headers, "content-type": "text/html; charset=utf-8" }
+  });
+}
+function validateSettings(input) {
+  const out = {};
+  for (const [key, raw] of Object.entries(input)) {
+    if (!SETTING_KEYS.includes(key))
+      throw new HttpError(400, `unknown setting: ${key}`);
+    if (key === "feed_poll_minutes") {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n < 1 || n > 1440) {
+        throw new HttpError(400, "feed_poll_minutes must be an integer from 1 to 1440");
+      }
+      out[key] = String(n);
+    } else {
+      const flag = raw === true || raw === 1 || raw === "1" ? "1" : raw === false || raw === 0 || raw === "0" ? "0" : null;
+      if (flag === null)
+        throw new HttpError(400, `${key} must be true or false`);
+      out[key] = flag;
+    }
+  }
+  return out;
+}
+var RE = {
+  doc: /^\/documents\/(\d+)$/,
+  docRaw: /^\/documents\/(\d+)\/raw$/,
+  docTags: /^\/documents\/(\d+)\/tags$/,
+  docNotes: /^\/documents\/(\d+)\/notes$/,
+  docNote: /^\/documents\/(\d+)\/notes\/(\d+)$/,
+  feed: /^\/feeds\/(\d+)$/,
+  feedCheck: /^\/feeds\/(\d+)\/check$/
+};
 async function route(req) {
   const url = new URL(req.url);
   const path2 = url.pathname.replace(/\/+$/, "") || "/";
   const method = req.method;
   if (method === "OPTIONS")
     return new Response(null, { status: 204, headers: CORS });
-  if (path2 === "/health" && method === "GET") {
-    return json({ ok: true, uptimeSeconds: Math.round((Date.now() - startedAt) / 1000) });
-  }
+  const isWrite = method !== "GET" && method !== "HEAD";
+  if (isWrite && !authorized(req, url))
+    return json({ error: "unauthorized" }, 401);
   if (path2 === "/" && method === "GET") {
+    return new Response(ui_default, {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-cache",
+        "content-security-policy": "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'"
+      }
+    });
+  }
+  if (path2 === "/api" && method === "GET") {
     const counts = stmts.statusCounts.all();
-    const byStatus = Object.fromEntries(counts.map((c) => [c.status, c.n]));
     return json({
       service: "otg-bot",
-      version: "1.0.0",
-      description: "URL keeper pipeline: ingestion API \u2192 scraper worker \u2192 embedded SQLite store",
+      version: VERSION,
+      description: "URL keeper: ingestion API \u2192 scraper worker \u2192 embedded SQLite store",
       endpoints: {
-        "GET  /health": "liveness probe",
-        "POST /ingest": "submit URL(s): {url} | {urls:[...]} | url=\u2026 form | plain text",
-        "GET  /ingest?url=\u2026": "bookmarklet / share-sheet friendly submission",
-        "GET  /documents?limit=&offset=&status=": "list documents (excerpt view)",
-        "GET  /documents/:id": "full document incl. cleaned content + raw metadata",
-        "DELETE /documents/:id": "remove a document",
-        "GET  /search?q=\u2026": "full-text search (FTS5)",
-        "GET  /queue": "worker queue statistics"
+        "GET    /health": "liveness probe",
+        "POST   /ingest": "save URL(s): {url} | {urls:[\u2026]} | url=\u2026 form | plain text; optional tags",
+        "GET    /ingest?url=\u2026&tags=\u2026": "bookmarklet / share-sheet submission",
+        "POST   /import/bookmarks": "browser bookmarks HTML export (folders become tags)",
+        "GET    /documents?limit=&offset=&status=&tag=": "list documents",
+        "GET    /documents/:id": "full document: content, metadata, tags, notes",
+        "GET    /documents/:id/raw": "stored HTML snapshot (sandboxed)",
+        "POST   /documents/:id/tags": "replace tags: {tags:[\u2026]}",
+        "POST   /documents/:id/notes": "add note: {note}",
+        "DELETE /documents/:id/notes/:noteId": "delete a note",
+        "DELETE /documents/:id": "delete a document",
+        "GET    /search?q=&tag=&limit=&offset=": "full-text search (FTS5)",
+        "GET    /feeds": "list RSS/Atom feeds",
+        "POST   /feeds": "add feed: {url}",
+        "PATCH  /feeds/:id": "enable/disable: {enabled}",
+        "POST   /feeds/:id/check": "check a feed now",
+        "DELETE /feeds/:id": "remove a feed",
+        "GET    /settings": "runtime settings",
+        "PUT    /settings": "update settings (feed_poll_minutes, feeds_enabled, snapshots)",
+        "GET    /queue": "worker queue statistics"
       },
-      documents: byStatus
+      documents: Object.fromEntries(counts.map((c) => [c.status, c.n])),
+      writes: INGEST_TOKEN ? "token required" : "open"
     });
+  }
+  if (path2 === "/health" && method === "GET") {
+    return json({ ok: true, version: VERSION, uptimeSeconds: Math.round((Date.now() - startedAt) / 1000) });
   }
   if (path2 === "/ingest" && (method === "POST" || method === "GET")) {
     return handleIngest(req, url);
   }
+  if (path2 === "/import/bookmarks" && method === "POST") {
+    return handleImport(req);
+  }
   if (path2 === "/documents" && method === "GET") {
     const limit = clamp(Number(url.searchParams.get("limit") ?? 25) || 25, 1, 100);
     const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0) || 0);
-    const status = url.searchParams.get("status");
+    const status = url.searchParams.get("status") || null;
+    const tag = url.searchParams.get("tag")?.trim().toLowerCase() || null;
     return json({
-      total: countDocuments(status),
+      total: countDocuments(status, tag),
       limit,
       offset,
-      documents: listDocuments(status, limit, offset)
+      documents: listDocuments(status, tag, limit, offset)
     });
   }
-  const docMatch = /^\/documents\/(\d+)$/.exec(path2);
-  if (docMatch) {
-    const id = Number(docMatch[1]);
-    const row = stmts.getById.get(id);
-    if (!row)
-      return json({ error: "document not found" }, 404);
+  let m = RE.doc.exec(path2);
+  if (m) {
+    const id = Number(m[1]);
     if (method === "GET") {
-      return json({ ...row, raw_metadata: row.raw_metadata ? JSON.parse(row.raw_metadata) : null });
+      const detail = documentDetail(id);
+      return detail ? json(detail) : json({ error: "document not found" }, 404);
     }
     if (method === "DELETE") {
-      if (!authorized(req, url))
-        return json({ error: "unauthorized" }, 401);
-      removeDocumentFromIndex(id);
-      stmts.deleteById.run(id);
-      return json({ deleted: id });
+      return deleteDocument(id) ? json({ deleted: id }) : json({ error: "document not found" }, 404);
     }
     return json({ error: "method not allowed" }, 405);
+  }
+  m = RE.docRaw.exec(path2);
+  if (m && method === "GET")
+    return serveSnapshot(Number(m[1]));
+  m = RE.docTags.exec(path2);
+  if (m && method === "POST") {
+    const id = Number(m[1]);
+    if (!stmts.getById.get(id))
+      return json({ error: "document not found" }, 404);
+    const body = await readJson(req);
+    return json({ tags: setTags(id, splitTags(body.tags)) });
+  }
+  m = RE.docNotes.exec(path2);
+  if (m && method === "POST") {
+    const id = Number(m[1]);
+    if (!stmts.getById.get(id))
+      return json({ error: "document not found" }, 404);
+    const body = await readJson(req);
+    const note = String(body.note ?? "").trim();
+    if (!note)
+      throw new HttpError(400, "note is required");
+    return json(addNote(id, note), 201);
+  }
+  m = RE.docNote.exec(path2);
+  if (m && method === "DELETE") {
+    const ok = deleteNote(Number(m[1]), Number(m[2]));
+    return ok ? json({ deleted: Number(m[2]) }) : json({ error: "note not found" }, 404);
   }
   if (path2 === "/search" && method === "GET") {
     const q = (url.searchParams.get("q") ?? "").trim();
@@ -18343,14 +19465,62 @@ async function route(req) {
     if (tokens.length === 0)
       return json({ error: "missing search query (?q=)" }, 400);
     const match = tokens.map((t) => `"${t}"*`).join(" AND ");
+    const tag = url.searchParams.get("tag")?.trim().toLowerCase() || null;
     const limit = clamp(Number(url.searchParams.get("limit") ?? 20) || 20, 1, 50);
     const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0) || 0);
     try {
-      const results = stmts.search.all(match, limit, offset);
-      return json({ query: q, limit, offset, results });
+      const results = searchDocuments(match, tag, limit, offset);
+      return json({ query: q, tag, limit, offset, results });
     } catch {
       return json({ error: "search failed", query: q }, 400);
     }
+  }
+  if (path2 === "/feeds" && method === "GET") {
+    return json(listFeeds().map((f) => ({ ...f, enabled: !!f.enabled })));
+  }
+  if (path2 === "/feeds" && method === "POST") {
+    const body = await readJson(req);
+    const feedUrl = normalizeUrl2(body.url);
+    if (!feedUrl)
+      throw new HttpError(400, "url must be a valid http(s) address");
+    const feed = insertFeed(feedUrl);
+    if (!feed)
+      throw new HttpError(500, "could not store feed");
+    checkFeedNow(feed.id).catch(() => {});
+    return json({ ...feed, enabled: !!feed.enabled }, 201);
+  }
+  m = RE.feedCheck.exec(path2);
+  if (m && method === "POST") {
+    const result = await checkFeedNow(Number(m[1]));
+    return result ? json(result) : json({ error: "feed not found" }, 404);
+  }
+  m = RE.feed.exec(path2);
+  if (m) {
+    const id = Number(m[1]);
+    const feed = getFeed2(id);
+    if (!feed)
+      return json({ error: "feed not found" }, 404);
+    if (method === "PATCH") {
+      const body = await readJson(req);
+      if (typeof body.enabled !== "boolean")
+        throw new HttpError(400, "enabled must be true or false");
+      setFeedEnabled(id, body.enabled);
+      return json({ ...getFeed2(id), enabled: body.enabled });
+    }
+    if (method === "DELETE") {
+      deleteFeed(id);
+      return json({ deleted: id });
+    }
+    return json({ error: "method not allowed" }, 405);
+  }
+  if (path2 === "/settings" && method === "GET") {
+    return json(getSettings());
+  }
+  if (path2 === "/settings" && method === "PUT") {
+    const updates = validateSettings(await readJson(req));
+    for (const [key, value] of Object.entries(updates))
+      setSetting(key, value);
+    return json(getSettings());
   }
   if (path2 === "/queue" && method === "GET") {
     const counts = stmts.statusCounts.all();
@@ -18365,12 +19535,17 @@ var server = Bun.serve({
   port: PORT,
   hostname: "0.0.0.0",
   fetch: (req) => route(req).catch((err) => {
+    if (err instanceof HttpError)
+      return json({ error: err.message }, err.status);
+    if (err instanceof SyntaxError)
+      return json({ error: "malformed request body" }, 400);
     console.error("[http] unhandled error:", err.message);
     return json({ error: "internal server error" }, 500);
   })
 });
 startWorker();
-console.log(`[otg-bot] ingestion API listening on http://0.0.0.0:${PORT} \u2014 store: ${DATA_DIR}`);
+startFeeds();
+console.log(`[otg-bot] v${VERSION} listening on http://0.0.0.0:${PORT} \u2014 store: ${DATA_DIR}`);
 var closing = false;
 function shutdown(signal) {
   if (closing)
@@ -18378,9 +19553,13 @@ function shutdown(signal) {
   closing = true;
   console.log(`[otg-bot] ${signal} received, shutting down\u2026`);
   stopWorker();
+  stopFeeds();
   server.stop(false);
   db.close();
   process.exit(0);
 }
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
+export {
+  parseBookmarks
+};

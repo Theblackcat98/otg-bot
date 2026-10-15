@@ -2,11 +2,18 @@
  * Scraper worker — claims queued URLs from the embedded store, fetches and
  * extracts them, and writes cleaned content + metadata back.
  */
-import { db, indexDocument, stmts, type DocumentRow } from "./db";
+import {
+  db,
+  getSetting,
+  indexDocument,
+  saveSnapshot,
+  stmts,
+  type DocumentRow,
+} from "./db";
 import { fetchAndExtract } from "./scraper";
 
 const MAX_ATTEMPTS = Number(process.env.MAX_ATTEMPTS ?? 3);
-const CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY ?? 2));
+const CONCURRENCY = Math.max(1, Number(process.env.CONCURRENCY ?? 4));
 const POLL_MS = Math.max(250, Number(process.env.POLL_MS ?? 2000));
 const FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.FETCH_TIMEOUT_MS ?? 20_000));
 const MAX_BYTES = Math.max(64 * 1024, Number(process.env.MAX_BYTES ?? 5_000_000));
@@ -25,6 +32,8 @@ export function recoverInterrupted(): void {
 function claimNext(): DocumentRow | null {
   return (stmts.claimNext.get(MAX_ATTEMPTS) as DocumentRow | undefined) ?? null;
 }
+
+const snapshotsForcedOff = process.env.SNAPSHOTS === "0";
 
 async function processOne(doc: DocumentRow): Promise<void> {
   try {
@@ -51,6 +60,9 @@ async function processOne(doc: DocumentRow): Promise<void> {
       description: ex.description,
       content: ex.content,
     });
+    if (!snapshotsForcedOff && getSetting("snapshots") !== "0") {
+      saveSnapshot(doc.id, ex.html, ex.contentType);
+    }
     console.log(`[worker] #${doc.id} ready — ${doc.url} (${ex.wordCount} words)`);
   } catch (err) {
     const message = (err as Error).message ?? String(err);
