@@ -1,6 +1,9 @@
 const port = 3995;
 const base = `http://localhost:${port}`;
 
+// Captured ntfy publishes (POST /ntfy/<topic>) for the e2e suite.
+const ntfyPosts: { topic: string; body: string; headers: Record<string, string> }[] = [];
+
 const page = (name: string) => `<!doctype html>
 <html lang="en"><head>
 <title>${name} page</title>
@@ -50,7 +53,7 @@ const bookmarks = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
 
 Bun.serve({
   port,
-  fetch(req) {
+  async fetch(req) {
     const { pathname } = new URL(req.url);
     const html = { "content-type": "text/html; charset=utf-8" };
     const xml = { "content-type": "application/xml" };
@@ -66,6 +69,19 @@ Bun.serve({
     if (pathname === "/atom.xml") return new Response(atom, { headers: xml });
     if (pathname === "/broken.xml") return new Response("nope", { status: 500 });
     if (pathname === "/bookmarks.html") return new Response(bookmarks, { headers: html });
+    if (pathname === "/__ntfy-posts") {
+      return new Response(JSON.stringify(ntfyPosts), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (pathname.startsWith("/ntfy/") && req.method === "POST") {
+      ntfyPosts.push({
+        topic: decodeURIComponent(pathname.slice(6)),
+        body: await req.text(),
+        headers: Object.fromEntries(req.headers.entries()),
+      });
+      return new Response("ok");
+    }
     return new Response("not found", { status: 404 });
   },
 });

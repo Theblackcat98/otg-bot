@@ -42,6 +42,10 @@ store + web UI). Deployed on Botkeep as server **OTG-BOT** — plain HTTP at
 - Feeds settings (`feeds_enabled`, `feed_poll_minutes`, `snapshots`) live in the
   settings table and are edited in the web UI — not env vars (`SNAPSHOTS=0` is
   the only env kill switch for snapshots).
+- ntfy notifications live in `src/notify.ts` (env: `NTFY_TOPIC`, `NTFY_URL`,
+  `NTFY_TOKEN`). The feed watcher sends one digest per poll when new items are
+  ingested — fire-and-forget, never throws into the pipeline. `POST
+  /notify/test` is a POST so it inherits the token check.
 - Re-ingesting an existing URL does not re-scrape it (it reports `duplicates`
   but merges new tags). To refresh a page: `DELETE /documents/:id`, then
   re-ingest.
@@ -56,12 +60,16 @@ The e2e suite runs against the **built bundle** and a **fresh database**
 
 ```sh
 bun run build
-bun run test:fixtures &                    # fixtures on :3995
-SERVER_PORT=3996 DATA_DIR=/tmp/otg-test bun dist/index.js &
-bun run test:e2e                           # 62 checks; override ports with BASE / FIXTURES
+bun run test:fixtures &                                                     # fixtures on :3995
+SERVER_PORT=3996 DATA_DIR=/tmp/otg-test NTFY_TOPIC=otg-test NTFY_URL=http://localhost:3995/ntfy bun dist/index.js &
+bun run test:e2e                           # 65 checks; override ports with BASE / FIXTURES
 ```
 
 Reusing an old `DATA_DIR` produces false failures.
+
+The fixture server captures ntfy publishes (`POST /ntfy/<topic>` → inspect at
+`GET /__ntfy-posts`); the ntfy e2e checks only pass when the app under test runs
+with `NTFY_TOPIC=otg-test` and `NTFY_URL` pointed at the fixture server.
 
 ## Docs to keep in sync
 

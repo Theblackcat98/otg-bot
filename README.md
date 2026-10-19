@@ -17,6 +17,7 @@ For day-to-day usage see **[DOCS.md](DOCS.md)**.
 - **Raw snapshots** — the original HTML of each page, served sandboxed.
 - **Tags and notes** — organise and annotate documents; filter lists and search by tag.
 - **RSS/Atom watcher** — polls feeds on an interval, ingests new items, tags them with the feed name. Feeds, interval and on/off switch are managed in the UI.
+- **ntfy push notifications** — when the feed watcher finds new items, a digest goes to your ntfy topic (phone push). Set `NTFY_TOPIC`; `POST /notify/test` to verify.
 - **Full-text search** — SQLite FTS5, prefix matching, ranked, highlighted snippets.
 
 ## Architecture
@@ -82,6 +83,7 @@ The full reference with examples is in [DOCS.md](DOCS.md). Summary:
 | POST | `/feeds/:id/check` | Check a feed now |
 | GET · PUT | `/settings` | Runtime settings |
 | GET | `/queue` | Worker queue statistics |
+| POST | `/notify/test` | Send a test ntfy notification (needs `NTFY_TOPIC`) |
 
 Every write (POST, PUT, PATCH, DELETE) requires `INGEST_TOKEN` when it is set.
 
@@ -100,6 +102,9 @@ Every write (POST, PUT, PATCH, DELETE) requires `INGEST_TOKEN` when it is set.
 | `MAX_BYTES` | `5000000` | Maximum HTML bytes fetched per page |
 | `MAX_ATTEMPTS` | `3` | Attempts before a document is marked `error` |
 | `SNAPSHOTS` | `1` | Set to `0` to disable snapshot storage entirely |
+| `NTFY_TOPIC` | *(unset)* | ntfy topic for push notifications; unset disables them. Use a hard-to-guess topic on the public server (e.g. `otg-<random>`) |
+| `NTFY_URL` | `https://ntfy.sh` | ntfy server (self-hosted or paid tiers) |
+| `NTFY_TOKEN` | *(unset)* | Bearer token when the ntfy server requires auth |
 | `USER_AGENT` | `Mozilla/5.0 (compatible; OTGBot/1.0; …)` | User agent for page and feed fetches |
 
 ### Runtime settings (managed in the UI or `PUT /settings`)
@@ -124,9 +129,9 @@ Atom, an ETag-aware feed, a failing feed and a bookmarks export.
 
 ```sh
 bun run build
-bun run test:fixtures &                       # port 3995
-SERVER_PORT=3996 DATA_DIR=/tmp/otg-test bun dist/index.js &
-bun run test:e2e                              # expects 62 passing checks
+bun run test:fixtures &                                                     # port 3995
+SERVER_PORT=3996 DATA_DIR=/tmp/otg-test NTFY_TOPIC=otg-test NTFY_URL=http://localhost:3995/ntfy bun dist/index.js &
+bun run test:e2e                              # expects 65 passing checks
 ```
 
 ## Deployed on Botkeep

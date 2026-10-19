@@ -15,6 +15,7 @@ import {
   type FeedRow,
 } from "./db";
 import { kick } from "./worker";
+import { notify } from "./notify";
 
 const FETCH_TIMEOUT_MS = 20_000;
 const TICK_MS = 60_000;
@@ -130,12 +131,24 @@ async function pollAllFeeds(): Promise<void> {
   try {
     const feeds = enabledFeeds();
     let total = 0;
+    const perFeed: { name: string; ingested: number }[] = [];
     for (const feed of feeds) {
       const r = await pollFeed(feed);
       total += r.ingested;
+      if (r.ingested > 0) {
+        perFeed.push({ name: (feed.title ?? feed.url).slice(0, 60), ingested: r.ingested });
+      }
     }
     if (feeds.length > 0) {
       console.log(`[feeds] checked ${feeds.length} feed(s), ${total} new item(s)`);
+    }
+    if (total > 0) {
+      const lines = perFeed.map((f) => `• ${f.name}: ${f.ingested}`);
+      notify({
+        title: "OTG-BOT",
+        message: `${total} new item(s)\n${lines.join("\n")}`.slice(0, 1000),
+        tags: ["newspaper"],
+      });
     }
   } finally {
     polling = false;

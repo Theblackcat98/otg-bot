@@ -18,7 +18,7 @@ var __toESM = (mod, isNodeMode, target) => {
       return cached;
   }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
-  const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
+  const to = isNodeMode || !mod || !mod.__esModule || !__hasOwnProp.call(mod, "default") ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   if (mod && typeof mod === "object" || typeof mod === "function") {
     for (let key of __getOwnPropNames(mod))
       if (!__hasOwnProp.call(to, key))
@@ -703,24 +703,24 @@ var require_utf7 = __commonJS(function(exports) {
   var andChar = 38;
   Utf7Decoder.prototype.write = function(buf) {
     var res = "", lastI = 0, inBase64 = this.inBase64, base64Accum = this.base64Accum;
-    for (var i2 = 0;i2 < buf.length; i2++) {
+    for (var i = 0;i < buf.length; i++) {
       if (!inBase64) {
-        if (buf[i2] == plusChar) {
-          res += this.iconv.decode(buf.slice(lastI, i2), "ascii");
-          lastI = i2 + 1;
+        if (buf[i] == plusChar) {
+          res += this.iconv.decode(buf.slice(lastI, i), "ascii");
+          lastI = i + 1;
           inBase64 = true;
         }
       } else {
-        if (!base64Chars[buf[i2]]) {
-          if (i2 == lastI && buf[i2] == minusChar) {
+        if (!base64Chars[buf[i]]) {
+          if (i == lastI && buf[i] == minusChar) {
             res += "+";
           } else {
-            var b64str = base64Accum + this.iconv.decode(buf.slice(lastI, i2), "ascii");
+            var b64str = base64Accum + this.iconv.decode(buf.slice(lastI, i), "ascii");
             res += this.iconv.decode(Buffer2.from(b64str, "base64"), "utf16-be");
           }
-          if (buf[i2] != minusChar)
-            i2--;
-          lastI = i2 + 1;
+          if (buf[i] != minusChar)
+            i--;
+          lastI = i + 1;
           inBase64 = false;
           base64Accum = "";
         }
@@ -762,8 +762,8 @@ var require_utf7 = __commonJS(function(exports) {
   }
   Utf7IMAPEncoder.prototype.write = function(str) {
     var inBase64 = this.inBase64, base64Accum = this.base64Accum, base64AccumIdx = this.base64AccumIdx, buf = Buffer2.alloc(str.length * 5 + 10), bufIdx = 0;
-    for (var i2 = 0;i2 < str.length; i2++) {
-      var uChar = str.charCodeAt(i2);
+    for (var i = 0;i < str.length; i++) {
+      var uChar = str.charCodeAt(i);
       if (32 <= uChar && uChar <= 126) {
         if (inBase64) {
           if (base64AccumIdx > 0) {
@@ -818,24 +818,24 @@ var require_utf7 = __commonJS(function(exports) {
   base64IMAPChars[44] = true;
   Utf7IMAPDecoder.prototype.write = function(buf) {
     var res = "", lastI = 0, inBase64 = this.inBase64, base64Accum = this.base64Accum;
-    for (var i2 = 0;i2 < buf.length; i2++) {
+    for (var i = 0;i < buf.length; i++) {
       if (!inBase64) {
-        if (buf[i2] == andChar) {
-          res += this.iconv.decode(buf.slice(lastI, i2), "ascii");
-          lastI = i2 + 1;
+        if (buf[i] == andChar) {
+          res += this.iconv.decode(buf.slice(lastI, i), "ascii");
+          lastI = i + 1;
           inBase64 = true;
         }
       } else {
-        if (!base64IMAPChars[buf[i2]]) {
-          if (i2 == lastI && buf[i2] == minusChar) {
+        if (!base64IMAPChars[buf[i]]) {
+          if (i == lastI && buf[i] == minusChar) {
             res += "&";
           } else {
-            var b64str = base64Accum + this.iconv.decode(buf.slice(lastI, i2), "ascii").replace(/,/g, "/");
+            var b64str = base64Accum + this.iconv.decode(buf.slice(lastI, i), "ascii").replace(/,/g, "/");
             res += this.iconv.decode(Buffer2.from(b64str, "base64"), "utf16-be");
           }
-          if (buf[i2] != minusChar)
-            i2--;
-          lastI = i2 + 1;
+          if (buf[i] != minusChar)
+            i--;
+          lastI = i + 1;
           inBase64 = false;
           base64Accum = "";
         }
@@ -1543,8 +1543,8 @@ var require_dbcs_codec = __commonJS(function(exports) {
     this.decodeTables = [];
     this.decodeTables[0] = UNASSIGNED_NODE.slice(0);
     this.decodeTableSeq = [];
-    for (var i2 = 0;i2 < mappingTable.length; i2++)
-      this._addDecodeChunk(mappingTable[i2]);
+    for (var i = 0;i < mappingTable.length; i++)
+      this._addDecodeChunk(mappingTable[i]);
     if (typeof codecOptions.gb18030 === "function") {
       this.gb18030 = codecOptions.gb18030();
       var commonThirdByteNodeIdx = this.decodeTables.length;
@@ -1552,8 +1552,8 @@ var require_dbcs_codec = __commonJS(function(exports) {
       var commonFourthByteNodeIdx = this.decodeTables.length;
       this.decodeTables.push(UNASSIGNED_NODE.slice(0));
       var firstByteNode = this.decodeTables[0];
-      for (var i2 = 129;i2 <= 254; i2++) {
-        var secondByteNode = this.decodeTables[NODE_START - firstByteNode[i2]];
+      for (var i = 129;i <= 254; i++) {
+        var secondByteNode = this.decodeTables[NODE_START - firstByteNode[i]];
         for (var j = 48;j <= 57; j++) {
           if (secondByteNode[j] === UNASSIGNED) {
             secondByteNode[j] = NODE_START - commonThirdByteNodeIdx;
@@ -1583,12 +1583,12 @@ var require_dbcs_codec = __commonJS(function(exports) {
     this.encodeTableSeq = [];
     var skipEncodeChars = {};
     if (codecOptions.encodeSkipVals)
-      for (var i2 = 0;i2 < codecOptions.encodeSkipVals.length; i2++) {
-        var val2 = codecOptions.encodeSkipVals[i2];
-        if (typeof val2 === "number")
-          skipEncodeChars[val2] = true;
+      for (var i = 0;i < codecOptions.encodeSkipVals.length; i++) {
+        var val = codecOptions.encodeSkipVals[i];
+        if (typeof val === "number")
+          skipEncodeChars[val] = true;
         else
-          for (var j = val2.from;j <= val2.to; j++)
+          for (var j = val.from;j <= val.to; j++)
             skipEncodeChars[j] = true;
       }
     this._fillEncodeTable(0, 0, skipEncodeChars);
@@ -1611,18 +1611,18 @@ var require_dbcs_codec = __commonJS(function(exports) {
       bytes.push(addr & 255);
     if (bytes.length == 0)
       bytes.push(0);
-    var node2 = this.decodeTables[0];
-    for (var i2 = bytes.length - 1;i2 > 0; i2--) {
-      var val2 = node2[bytes[i2]];
-      if (val2 == UNASSIGNED) {
-        node2[bytes[i2]] = NODE_START - this.decodeTables.length;
-        this.decodeTables.push(node2 = UNASSIGNED_NODE.slice(0));
-      } else if (val2 <= NODE_START) {
-        node2 = this.decodeTables[NODE_START - val2];
+    var node = this.decodeTables[0];
+    for (var i = bytes.length - 1;i > 0; i--) {
+      var val = node[bytes[i]];
+      if (val == UNASSIGNED) {
+        node[bytes[i]] = NODE_START - this.decodeTables.length;
+        this.decodeTables.push(node = UNASSIGNED_NODE.slice(0));
+      } else if (val <= NODE_START) {
+        node = this.decodeTables[NODE_START - val];
       } else
         throw new Error("Overwrite byte in " + this.encodingName + ", addr: " + addr.toString(16));
     }
-    return node2;
+    return node;
   };
   DBCSCodec.prototype._addDecodeChunk = function(chunk) {
     var curAddr = parseInt(chunk[0], 16);
@@ -1677,36 +1677,36 @@ var require_dbcs_codec = __commonJS(function(exports) {
     var uCode = seq[0];
     var bucket = this._getEncodeBucket(uCode);
     var low = uCode & 255;
-    var node2;
+    var node;
     if (bucket[low] <= SEQ_START) {
-      node2 = this.encodeTableSeq[SEQ_START - bucket[low]];
+      node = this.encodeTableSeq[SEQ_START - bucket[low]];
     } else {
-      node2 = {};
+      node = {};
       if (bucket[low] !== UNASSIGNED)
-        node2[DEF_CHAR] = bucket[low];
+        node[DEF_CHAR] = bucket[low];
       bucket[low] = SEQ_START - this.encodeTableSeq.length;
-      this.encodeTableSeq.push(node2);
+      this.encodeTableSeq.push(node);
     }
     for (var j = 1;j < seq.length - 1; j++) {
-      var oldVal = node2[uCode];
+      var oldVal = node[uCode];
       if (typeof oldVal === "object")
-        node2 = oldVal;
+        node = oldVal;
       else {
-        node2 = node2[uCode] = {};
+        node = node[uCode] = {};
         if (oldVal !== undefined)
-          node2[DEF_CHAR] = oldVal;
+          node[DEF_CHAR] = oldVal;
       }
     }
     uCode = seq[seq.length - 1];
-    node2[uCode] = dbcsCode;
+    node[uCode] = dbcsCode;
   };
   DBCSCodec.prototype._fillEncodeTable = function(nodeIdx, prefix, skipEncodeChars) {
-    var node2 = this.decodeTables[nodeIdx];
+    var node = this.decodeTables[nodeIdx];
     var hasValues = false;
     var subNodeEmpty = {};
-    for (var i2 = 0;i2 < 256; i2++) {
-      var uCode = node2[i2];
-      var mbCode = prefix + i2;
+    for (var i = 0;i < 256; i++) {
+      var uCode = node[i];
+      var mbCode = prefix + i;
       if (skipEncodeChars[mbCode])
         continue;
       if (uCode >= 0) {
@@ -1737,12 +1737,12 @@ var require_dbcs_codec = __commonJS(function(exports) {
     this.gb18030 = codec.gb18030;
   }
   DBCSEncoder.prototype.write = function(str) {
-    var newBuf = Buffer2.alloc(str.length * (this.gb18030 ? 4 : 3)), leadSurrogate = this.leadSurrogate, seqObj = this.seqObj, nextChar = -1, i2 = 0, j = 0;
+    var newBuf = Buffer2.alloc(str.length * (this.gb18030 ? 4 : 3)), leadSurrogate = this.leadSurrogate, seqObj = this.seqObj, nextChar = -1, i = 0, j = 0;
     while (true) {
       if (nextChar === -1) {
-        if (i2 == str.length)
+        if (i == str.length)
           break;
-        var uCode = str.charCodeAt(i2++);
+        var uCode = str.charCodeAt(i++);
       } else {
         var uCode = nextChar;
         nextChar = -1;
@@ -1863,17 +1863,17 @@ var require_dbcs_codec = __commonJS(function(exports) {
   }
   DBCSDecoder.prototype.write = function(buf) {
     var newBuf = Buffer2.alloc(buf.length * 2), nodeIdx = this.nodeIdx, prevBytes = this.prevBytes, prevOffset = this.prevBytes.length, seqStart = -this.prevBytes.length, uCode;
-    for (var i2 = 0, j = 0;i2 < buf.length; i2++) {
-      var curByte = i2 >= 0 ? buf[i2] : prevBytes[i2 + prevOffset];
+    for (var i = 0, j = 0;i < buf.length; i++) {
+      var curByte = i >= 0 ? buf[i] : prevBytes[i + prevOffset];
       var uCode = this.decodeTables[nodeIdx][curByte];
       if (uCode >= 0) {} else if (uCode === UNASSIGNED) {
         uCode = this.defaultCharUnicode.charCodeAt(0);
-        i2 = seqStart;
+        i = seqStart;
       } else if (uCode === GB18030_CODE) {
-        if (i2 >= 3) {
-          var ptr = (buf[i2 - 3] - 129) * 12600 + (buf[i2 - 2] - 48) * 1260 + (buf[i2 - 1] - 129) * 10 + (curByte - 48);
+        if (i >= 3) {
+          var ptr = (buf[i - 3] - 129) * 12600 + (buf[i - 2] - 48) * 1260 + (buf[i - 1] - 129) * 10 + (curByte - 48);
         } else {
-          var ptr = (prevBytes[i2 - 3 + prevOffset] - 129) * 12600 + ((i2 - 2 >= 0 ? buf[i2 - 2] : prevBytes[i2 - 2 + prevOffset]) - 48) * 1260 + ((i2 - 1 >= 0 ? buf[i2 - 1] : prevBytes[i2 - 1 + prevOffset]) - 129) * 10 + (curByte - 48);
+          var ptr = (prevBytes[i - 3 + prevOffset] - 129) * 12600 + ((i - 2 >= 0 ? buf[i - 2] : prevBytes[i - 2 + prevOffset]) - 48) * 1260 + ((i - 1 >= 0 ? buf[i - 1] : prevBytes[i - 1 + prevOffset]) - 129) * 10 + (curByte - 48);
         }
         var idx = findIdx(this.gb18030.gbChars, ptr);
         uCode = this.gb18030.uChars[idx] + ptr - this.gb18030.gbChars[idx];
@@ -1900,7 +1900,7 @@ var require_dbcs_codec = __commonJS(function(exports) {
       newBuf[j++] = uCode & 255;
       newBuf[j++] = uCode >> 8;
       nodeIdx = 0;
-      seqStart = i2 + 1;
+      seqStart = i + 1;
     }
     this.nodeIdx = nodeIdx;
     this.prevBytes = seqStart >= 0 ? Array.prototype.slice.call(buf, seqStart) : prevBytes.slice(seqStart + prevOffset).concat(Array.prototype.slice.call(buf));
@@ -1920,13 +1920,13 @@ var require_dbcs_codec = __commonJS(function(exports) {
     this.nodeIdx = 0;
     return ret;
   };
-  function findIdx(table, val2) {
-    if (table[0] > val2)
+  function findIdx(table, val) {
+    if (table[0] > val)
       return -1;
     var l = 0, r = table.length;
     while (l < r - 1) {
       var mid = l + (r - l + 1 >> 1);
-      if (table[mid] <= val2)
+      if (table[mid] <= val)
         l = mid;
       else
         r = mid;
@@ -3544,10 +3544,10 @@ var require_lib = __commonJS(function(exports, module) {
       decoder = new bomHandling.StripBOM(decoder, options);
     return decoder;
   };
-  iconv.enableStreamingAPI = function enableStreamingAPI(stream_module2) {
+  iconv.enableStreamingAPI = function enableStreamingAPI(stream_module) {
     if (iconv.supportsStreams)
       return;
-    var streams = require_streams()(stream_module2);
+    var streams = require_streams()(stream_module);
     iconv.IconvLiteEncoderStream = streams.IconvLiteEncoderStream;
     iconv.IconvLiteDecoderStream = streams.IconvLiteDecoderStream;
     iconv.encodeStream = function encodeStream(encoding, options) {
@@ -3939,8 +3939,8 @@ var require_mime_type_parameters = __commonJS(function(exports, module) {
     soleyContainsHTTPQuotedStringTokenCodePoints
   } = require_utils();
   module.exports = class MIMETypeParameters {
-    constructor(map2) {
-      this._map = map2;
+    constructor(map) {
+      this._map = map;
     }
     get size() {
       return this._map.size;
@@ -4096,8 +4096,8 @@ var require_serializer = __commonJS(function(exports, module) {
 // node_modules/whatwg-mimetype/lib/mime-type.js
 var require_mime_type = __commonJS(function(exports, module) {
   var MIMETypeParameters = require_mime_type_parameters();
-  var parse6 = require_parser();
-  var serialize3 = require_serializer();
+  var parse = require_parser();
+  var serialize = require_serializer();
   var {
     asciiLowercase,
     solelyContainsHTTPTokenCodePoints
@@ -4105,7 +4105,7 @@ var require_mime_type = __commonJS(function(exports, module) {
   module.exports = class MIMEType {
     constructor(string) {
       string = String(string);
-      const result = parse6(string);
+      const result = parse(string);
       if (result === null) {
         throw new Error(`Could not parse MIME type string "${string}"`);
       }
@@ -4153,7 +4153,7 @@ var require_mime_type = __commonJS(function(exports, module) {
       return this._parameters;
     }
     toString() {
-      return serialize3(this);
+      return serialize(this);
     }
     isJavaScript({ prohibitParameters = false } = {}) {
       switch (this._type) {
@@ -4294,31 +4294,17 @@ __export(exports_esm2, {
 });
 
 // node_modules/domelementtype/lib/esm/index.js
-var exports_esm = {};
-__export(exports_esm, {
-  CDATA: () => CDATA,
-  Comment: () => Comment,
-  Directive: () => Directive,
-  Doctype: () => Doctype,
-  ElementType: () => ElementType,
-  Root: () => Root,
-  Script: () => Script,
-  Style: () => Style,
-  Tag: () => Tag,
-  Text: () => Text,
-  isTag: () => isTag
-});
 var ElementType;
-(function(ElementType2) {
-  ElementType2["Root"] = "root";
-  ElementType2["Text"] = "text";
-  ElementType2["Directive"] = "directive";
-  ElementType2["Comment"] = "comment";
-  ElementType2["Script"] = "script";
-  ElementType2["Style"] = "style";
-  ElementType2["Tag"] = "tag";
-  ElementType2["CDATA"] = "cdata";
-  ElementType2["Doctype"] = "doctype";
+(function(ElementType) {
+  ElementType["Root"] = "root";
+  ElementType["Text"] = "text";
+  ElementType["Directive"] = "directive";
+  ElementType["Comment"] = "comment";
+  ElementType["Script"] = "script";
+  ElementType["Style"] = "style";
+  ElementType["Tag"] = "tag";
+  ElementType["CDATA"] = "cdata";
+  ElementType["Doctype"] = "doctype";
 })(ElementType || (ElementType = {}));
 function isTag(elem) {
   return elem.type === ElementType.Tag || elem.type === ElementType.Script || elem.type === ElementType.Style;
@@ -4743,17 +4729,17 @@ var escapeText = getEscaper(/[&<>\u00A0]/g, new Map([
 ]));
 // node_modules/entities/lib/esm/index.js
 var EntityLevel;
-(function(EntityLevel2) {
-  EntityLevel2[EntityLevel2["XML"] = 0] = "XML";
-  EntityLevel2[EntityLevel2["HTML"] = 1] = "HTML";
+(function(EntityLevel) {
+  EntityLevel[EntityLevel["XML"] = 0] = "XML";
+  EntityLevel[EntityLevel["HTML"] = 1] = "HTML";
 })(EntityLevel || (EntityLevel = {}));
 var EncodingMode;
-(function(EncodingMode2) {
-  EncodingMode2[EncodingMode2["UTF8"] = 0] = "UTF8";
-  EncodingMode2[EncodingMode2["ASCII"] = 1] = "ASCII";
-  EncodingMode2[EncodingMode2["Extensive"] = 2] = "Extensive";
-  EncodingMode2[EncodingMode2["Attribute"] = 3] = "Attribute";
-  EncodingMode2[EncodingMode2["Text"] = 4] = "Text";
+(function(EncodingMode) {
+  EncodingMode[EncodingMode["UTF8"] = 0] = "UTF8";
+  EncodingMode[EncodingMode["ASCII"] = 1] = "ASCII";
+  EncodingMode[EncodingMode["Extensive"] = 2] = "Extensive";
+  EncodingMode[EncodingMode["Attribute"] = 3] = "Attribute";
+  EncodingMode[EncodingMode["Text"] = 4] = "Text";
 })(EncodingMode || (EncodingMode = {}));
 
 // node_modules/dom-serializer/lib/esm/foreignNames.js
@@ -4878,8 +4864,8 @@ function formatAttributes(attributes, opts) {
     return;
   const encode = ((_a = opts.encodeEntities) !== null && _a !== undefined ? _a : opts.decodeEntities) === false ? replaceQuotes : opts.xmlMode || opts.encodeEntities !== "utf8" ? encodeXML : escapeAttribute;
   return Object.keys(attributes).map((key) => {
-    var _a2, _b;
-    const value = (_a2 = attributes[key]) !== null && _a2 !== undefined ? _a2 : "";
+    var _a, _b;
+    const value = (_a = attributes[key]) !== null && _a !== undefined ? _a : "";
     if (opts.xmlMode === "foreign") {
       key = (_b = attributeNames.get(key)) !== null && _b !== undefined ? _b : key;
     }
@@ -4910,8 +4896,8 @@ var singleTag = new Set([
   "track",
   "wbr"
 ]);
-function render(node2, options = {}) {
-  const nodes = "length" in node2 ? node2 : [node2];
+function render(node, options = {}) {
+  const nodes = "length" in node ? node : [node];
   let output = "";
   for (let i = 0;i < nodes.length; i++) {
     output += renderNode(nodes[i], options);
@@ -4919,23 +4905,23 @@ function render(node2, options = {}) {
   return output;
 }
 var esm_default = render;
-function renderNode(node2, options) {
-  switch (node2.type) {
+function renderNode(node, options) {
+  switch (node.type) {
     case Root:
-      return render(node2.children, options);
+      return render(node.children, options);
     case Doctype:
     case Directive:
-      return renderDirective(node2);
+      return renderDirective(node);
     case Comment:
-      return renderComment(node2);
+      return renderComment(node);
     case CDATA:
-      return renderCdata(node2);
+      return renderCdata(node);
     case Script:
     case Style:
     case Tag:
-      return renderTag(node2, options);
+      return renderTag(node, options);
     case Text:
-      return renderText(node2, options);
+      return renderText(node, options);
   }
 }
 var foreignModeIntegrationPoints = new Set([
@@ -5000,42 +4986,42 @@ function renderComment(elem) {
 }
 
 // node_modules/domutils/lib/esm/stringify.js
-function getOuterHTML(node2, options) {
-  return esm_default(node2, options);
+function getOuterHTML(node, options) {
+  return esm_default(node, options);
 }
-function getInnerHTML(node2, options) {
-  return hasChildren(node2) ? node2.children.map((node3) => getOuterHTML(node3, options)).join("") : "";
+function getInnerHTML(node, options) {
+  return hasChildren(node) ? node.children.map((node) => getOuterHTML(node, options)).join("") : "";
 }
-function getText(node2) {
-  if (Array.isArray(node2))
-    return node2.map(getText).join("");
-  if (isTag2(node2))
-    return node2.name === "br" ? `
-` : getText(node2.children);
-  if (isCDATA(node2))
-    return getText(node2.children);
-  if (isText(node2))
-    return node2.data;
+function getText(node) {
+  if (Array.isArray(node))
+    return node.map(getText).join("");
+  if (isTag2(node))
+    return node.name === "br" ? `
+` : getText(node.children);
+  if (isCDATA(node))
+    return getText(node.children);
+  if (isText(node))
+    return node.data;
   return "";
 }
-function textContent(node2) {
-  if (Array.isArray(node2))
-    return node2.map(textContent).join("");
-  if (hasChildren(node2) && !isComment(node2)) {
-    return textContent(node2.children);
+function textContent(node) {
+  if (Array.isArray(node))
+    return node.map(textContent).join("");
+  if (hasChildren(node) && !isComment(node)) {
+    return textContent(node.children);
   }
-  if (isText(node2))
-    return node2.data;
+  if (isText(node))
+    return node.data;
   return "";
 }
-function innerText(node2) {
-  if (Array.isArray(node2))
-    return node2.map(innerText).join("");
-  if (hasChildren(node2) && (node2.type === ElementType.Tag || isCDATA(node2))) {
-    return innerText(node2.children);
+function innerText(node) {
+  if (Array.isArray(node))
+    return node.map(innerText).join("");
+  if (hasChildren(node) && (node.type === ElementType.Tag || isCDATA(node))) {
+    return innerText(node.children);
   }
-  if (isText(node2))
-    return node2.data;
+  if (isText(node))
+    return node.data;
   return "";
 }
 // node_modules/domutils/lib/esm/traversal.js
@@ -5174,8 +5160,8 @@ function prepend(elem, prev) {
   elem.prev = prev;
 }
 // node_modules/domutils/lib/esm/querying.js
-function filter(test, node2, recurse = true, limit = Infinity) {
-  return find(test, Array.isArray(node2) ? node2 : [node2], recurse, limit);
+function filter(test, node, recurse = true, limit = Infinity) {
+  return find(test, Array.isArray(node) ? node : [node], recurse, limit);
 }
 function find(test, nodes, recurse, limit) {
   const result = [];
@@ -5208,12 +5194,12 @@ function findOneChild(test, nodes) {
 function findOne(test, nodes, recurse = true) {
   const searchedNodes = Array.isArray(nodes) ? nodes : [nodes];
   for (let i = 0;i < searchedNodes.length; i++) {
-    const node2 = searchedNodes[i];
-    if (isTag2(node2) && test(node2)) {
-      return node2;
+    const node = searchedNodes[i];
+    if (isTag2(node) && test(node)) {
+      return node;
     }
-    if (recurse && hasChildren(node2) && node2.children.length > 0) {
-      const found = findOne(test, node2.children, true);
+    if (recurse && hasChildren(node) && node.children.length > 0) {
+      const found = findOne(test, node.children, true);
       if (found)
         return found;
     }
@@ -5221,7 +5207,7 @@ function findOne(test, nodes, recurse = true) {
   return null;
 }
 function existsOne(test, nodes) {
-  return (Array.isArray(nodes) ? nodes : [nodes]).some((node2) => isTag2(node2) && test(node2) || hasChildren(node2) && existsOne(test, node2.children));
+  return (Array.isArray(nodes) ? nodes : [nodes]).some((node) => isTag2(node) && test(node) || hasChildren(node) && existsOne(test, node.children));
 }
 function findAll(test, nodes) {
   const result = [];
@@ -5284,9 +5270,9 @@ function compileTest(options) {
   });
   return funcs.length === 0 ? null : funcs.reduce(combineFuncs);
 }
-function testElement(options, node2) {
+function testElement(options, node) {
   const test = compileTest(options);
-  return test ? test(node2) : true;
+  return test ? test(node) : true;
 }
 function getElements(options, nodes, recurse, limit = Infinity) {
   const test = compileTest(options);
@@ -5310,12 +5296,12 @@ function getElementsByTagType(type, nodes, recurse = true, limit = Infinity) {
 function removeSubsets(nodes) {
   let idx = nodes.length;
   while (--idx >= 0) {
-    const node2 = nodes[idx];
-    if (idx > 0 && nodes.lastIndexOf(node2, idx - 1) >= 0) {
+    const node = nodes[idx];
+    if (idx > 0 && nodes.lastIndexOf(node, idx - 1) >= 0) {
       nodes.splice(idx, 1);
       continue;
     }
-    for (let ancestor = node2.parent;ancestor; ancestor = ancestor.parent) {
+    for (let ancestor = node.parent;ancestor; ancestor = ancestor.parent) {
       if (nodes.includes(ancestor)) {
         nodes.splice(idx, 1);
         break;
@@ -5325,12 +5311,12 @@ function removeSubsets(nodes) {
   return nodes;
 }
 var DocumentPosition;
-(function(DocumentPosition2) {
-  DocumentPosition2[DocumentPosition2["DISCONNECTED"] = 1] = "DISCONNECTED";
-  DocumentPosition2[DocumentPosition2["PRECEDING"] = 2] = "PRECEDING";
-  DocumentPosition2[DocumentPosition2["FOLLOWING"] = 4] = "FOLLOWING";
-  DocumentPosition2[DocumentPosition2["CONTAINS"] = 8] = "CONTAINS";
-  DocumentPosition2[DocumentPosition2["CONTAINED_BY"] = 16] = "CONTAINED_BY";
+(function(DocumentPosition) {
+  DocumentPosition[DocumentPosition["DISCONNECTED"] = 1] = "DISCONNECTED";
+  DocumentPosition[DocumentPosition["PRECEDING"] = 2] = "PRECEDING";
+  DocumentPosition[DocumentPosition["FOLLOWING"] = 4] = "FOLLOWING";
+  DocumentPosition[DocumentPosition["CONTAINS"] = 8] = "CONTAINS";
+  DocumentPosition[DocumentPosition["CONTAINED_BY"] = 16] = "CONTAINED_BY";
 })(DocumentPosition || (DocumentPosition = {}));
 function compareDocumentPosition(nodeA, nodeB) {
   const aParents = [];
@@ -5372,7 +5358,7 @@ function compareDocumentPosition(nodeA, nodeB) {
   return DocumentPosition.PRECEDING;
 }
 function uniqueSort(nodes) {
-  nodes = nodes.filter((node2, i, arr) => !arr.includes(node2, i + 1));
+  nodes = nodes.filter((node, i, arr) => !arr.includes(node, i + 1));
   nodes.sort((a, b) => {
     const relative = compareDocumentPosition(a, b);
     if (relative & DocumentPosition.PRECEDING) {
@@ -5395,14 +5381,14 @@ function getAtomFeed(feedRoot) {
   const feed = {
     type: "atom",
     items: getElementsByTagName("entry", childs).map((item) => {
-      var _a2;
+      var _a;
       const { children } = item;
       const entry = { media: getMediaElements(children) };
       addConditionally(entry, "id", "id", children);
       addConditionally(entry, "title", "title", children);
-      const href2 = (_a2 = getOneElement("link", children)) === null || _a2 === undefined ? undefined : _a2.attribs["href"];
-      if (href2) {
-        entry.link = href2;
+      const href = (_a = getOneElement("link", children)) === null || _a === undefined ? undefined : _a.attribs["href"];
+      if (href) {
+        entry.link = href;
       }
       const description = fetch2("summary", children) || fetch2("content", children);
       if (description) {
@@ -5492,8 +5478,8 @@ function getMediaElements(where) {
     return media;
   });
 }
-function getOneElement(tagName, node2) {
-  return getElementsByTagName(tagName, node2, true, 1)[0];
+function getOneElement(tagName, node) {
+  return getElementsByTagName(tagName, node, true, 1)[0];
 }
 function fetch2(tagName, where, recurse = false) {
   return textContent(getElementsByTagName(tagName, where, recurse, 1)).trim();
@@ -5625,12 +5611,12 @@ function domEach(array, fn) {
   return array;
 }
 var CharacterCode;
-(function(CharacterCode2) {
-  CharacterCode2[CharacterCode2["LowerA"] = 97] = "LowerA";
-  CharacterCode2[CharacterCode2["LowerZ"] = 122] = "LowerZ";
-  CharacterCode2[CharacterCode2["UpperA"] = 65] = "UpperA";
-  CharacterCode2[CharacterCode2["UpperZ"] = 90] = "UpperZ";
-  CharacterCode2[CharacterCode2["Exclamation"] = 33] = "Exclamation";
+(function(CharacterCode) {
+  CharacterCode[CharacterCode["LowerA"] = 97] = "LowerA";
+  CharacterCode[CharacterCode["LowerZ"] = 122] = "LowerZ";
+  CharacterCode[CharacterCode["UpperA"] = 65] = "UpperA";
+  CharacterCode[CharacterCode["UpperZ"] = 90] = "UpperZ";
+  CharacterCode[CharacterCode["Exclamation"] = 33] = "Exclamation";
 })(CharacterCode || (CharacterCode = {}));
 function isHtml(str) {
   if (typeof str !== "string") {
@@ -5686,11 +5672,11 @@ var fromCodePoint = (_a = String.fromCodePoint) !== null && _a !== undefined ? _
   return output;
 };
 function replaceCodePoint(codePoint) {
-  var _a2;
+  var _a;
   if (codePoint >= 55296 && codePoint <= 57343 || codePoint > 1114111) {
     return 65533;
   }
-  return (_a2 = decodeMap.get(codePoint)) !== null && _a2 !== undefined ? _a2 : codePoint;
+  return (_a = decodeMap.get(codePoint)) !== null && _a !== undefined ? _a : codePoint;
 }
 
 // node_modules/htmlparser2/node_modules/entities/dist/esm/internal/decode-shared.js
@@ -5714,28 +5700,28 @@ var xmlDecodeTree = /* @__PURE__ */ decodeBase64("AAJhZ2xxBwARABMAFQBtAg0AAAAAAA
 
 // node_modules/htmlparser2/node_modules/entities/dist/esm/internal/bin-trie-flags.js
 var BinTrieFlags;
-(function(BinTrieFlags2) {
-  BinTrieFlags2[BinTrieFlags2["VALUE_LENGTH"] = 49152] = "VALUE_LENGTH";
-  BinTrieFlags2[BinTrieFlags2["FLAG13"] = 8192] = "FLAG13";
-  BinTrieFlags2[BinTrieFlags2["BRANCH_LENGTH"] = 8064] = "BRANCH_LENGTH";
-  BinTrieFlags2[BinTrieFlags2["JUMP_TABLE"] = 127] = "JUMP_TABLE";
+(function(BinTrieFlags) {
+  BinTrieFlags[BinTrieFlags["VALUE_LENGTH"] = 49152] = "VALUE_LENGTH";
+  BinTrieFlags[BinTrieFlags["FLAG13"] = 8192] = "FLAG13";
+  BinTrieFlags[BinTrieFlags["BRANCH_LENGTH"] = 8064] = "BRANCH_LENGTH";
+  BinTrieFlags[BinTrieFlags["JUMP_TABLE"] = 127] = "JUMP_TABLE";
 })(BinTrieFlags || (BinTrieFlags = {}));
 
 // node_modules/htmlparser2/node_modules/entities/dist/esm/decode.js
 var CharCodes;
-(function(CharCodes2) {
-  CharCodes2[CharCodes2["NUM"] = 35] = "NUM";
-  CharCodes2[CharCodes2["SEMI"] = 59] = "SEMI";
-  CharCodes2[CharCodes2["EQUALS"] = 61] = "EQUALS";
-  CharCodes2[CharCodes2["ZERO"] = 48] = "ZERO";
-  CharCodes2[CharCodes2["NINE"] = 57] = "NINE";
-  CharCodes2[CharCodes2["LOWER_A"] = 97] = "LOWER_A";
-  CharCodes2[CharCodes2["LOWER_F"] = 102] = "LOWER_F";
-  CharCodes2[CharCodes2["LOWER_X"] = 120] = "LOWER_X";
-  CharCodes2[CharCodes2["LOWER_Z"] = 122] = "LOWER_Z";
-  CharCodes2[CharCodes2["UPPER_A"] = 65] = "UPPER_A";
-  CharCodes2[CharCodes2["UPPER_F"] = 70] = "UPPER_F";
-  CharCodes2[CharCodes2["UPPER_Z"] = 90] = "UPPER_Z";
+(function(CharCodes) {
+  CharCodes[CharCodes["NUM"] = 35] = "NUM";
+  CharCodes[CharCodes["SEMI"] = 59] = "SEMI";
+  CharCodes[CharCodes["EQUALS"] = 61] = "EQUALS";
+  CharCodes[CharCodes["ZERO"] = 48] = "ZERO";
+  CharCodes[CharCodes["NINE"] = 57] = "NINE";
+  CharCodes[CharCodes["LOWER_A"] = 97] = "LOWER_A";
+  CharCodes[CharCodes["LOWER_F"] = 102] = "LOWER_F";
+  CharCodes[CharCodes["LOWER_X"] = 120] = "LOWER_X";
+  CharCodes[CharCodes["LOWER_Z"] = 122] = "LOWER_Z";
+  CharCodes[CharCodes["UPPER_A"] = 65] = "UPPER_A";
+  CharCodes[CharCodes["UPPER_F"] = 70] = "UPPER_F";
+  CharCodes[CharCodes["UPPER_Z"] = 90] = "UPPER_Z";
 })(CharCodes || (CharCodes = {}));
 var TO_LOWER_BIT = 32;
 function isNumber(code) {
@@ -5751,18 +5737,18 @@ function isEntityInAttributeInvalidEnd(code) {
   return code === CharCodes.EQUALS || isAsciiAlphaNumeric(code);
 }
 var EntityDecoderState;
-(function(EntityDecoderState2) {
-  EntityDecoderState2[EntityDecoderState2["EntityStart"] = 0] = "EntityStart";
-  EntityDecoderState2[EntityDecoderState2["NumericStart"] = 1] = "NumericStart";
-  EntityDecoderState2[EntityDecoderState2["NumericDecimal"] = 2] = "NumericDecimal";
-  EntityDecoderState2[EntityDecoderState2["NumericHex"] = 3] = "NumericHex";
-  EntityDecoderState2[EntityDecoderState2["NamedEntity"] = 4] = "NamedEntity";
+(function(EntityDecoderState) {
+  EntityDecoderState[EntityDecoderState["EntityStart"] = 0] = "EntityStart";
+  EntityDecoderState[EntityDecoderState["NumericStart"] = 1] = "NumericStart";
+  EntityDecoderState[EntityDecoderState["NumericDecimal"] = 2] = "NumericDecimal";
+  EntityDecoderState[EntityDecoderState["NumericHex"] = 3] = "NumericHex";
+  EntityDecoderState[EntityDecoderState["NamedEntity"] = 4] = "NamedEntity";
 })(EntityDecoderState || (EntityDecoderState = {}));
 var DecodingMode;
-(function(DecodingMode2) {
-  DecodingMode2[DecodingMode2["Legacy"] = 0] = "Legacy";
-  DecodingMode2[DecodingMode2["Strict"] = 1] = "Strict";
-  DecodingMode2[DecodingMode2["Attribute"] = 2] = "Attribute";
+(function(DecodingMode) {
+  DecodingMode[DecodingMode["Legacy"] = 0] = "Legacy";
+  DecodingMode[DecodingMode["Strict"] = 1] = "Strict";
+  DecodingMode[DecodingMode["Attribute"] = 2] = "Attribute";
 })(DecodingMode || (DecodingMode = {}));
 
 class EntityDecoder {
@@ -5852,9 +5838,9 @@ class EntityDecoder {
     return -1;
   }
   emitNumericEntity(lastCp, expectedLength) {
-    var _a2;
+    var _a;
     if (this.consumed <= expectedLength) {
-      (_a2 = this.errors) === null || _a2 === undefined || _a2.absenceOfDigitsInNumericCharacterReference(this.consumed);
+      (_a = this.errors) === null || _a === undefined || _a.absenceOfDigitsInNumericCharacterReference(this.consumed);
       return 0;
     }
     if (lastCp === CharCodes.SEMI) {
@@ -5935,11 +5921,11 @@ class EntityDecoder {
     return -1;
   }
   emitNotTerminatedNamedEntity() {
-    var _a2;
+    var _a;
     const { result, decodeTree } = this;
     const valueLength = (decodeTree[result] & BinTrieFlags.VALUE_LENGTH) >> 14;
     this.emitNamedEntityData(result, valueLength, this.consumed);
-    (_a2 = this.errors) === null || _a2 === undefined || _a2.missingSemicolonAfterCharacterReference();
+    (_a = this.errors) === null || _a === undefined || _a.missingSemicolonAfterCharacterReference();
     return this.consumed;
   }
   emitNamedEntityData(result, valueLength, consumed) {
@@ -5951,7 +5937,7 @@ class EntityDecoder {
     return consumed;
   }
   end() {
-    var _a2;
+    var _a;
     switch (this.state) {
       case EntityDecoderState.NamedEntity: {
         return this.result !== 0 && (this.decodeMode !== DecodingMode.Attribute || this.result === this.treeIndex) ? this.emitNotTerminatedNamedEntity() : 0;
@@ -5963,7 +5949,7 @@ class EntityDecoder {
         return this.emitNumericEntity(0, 3);
       }
       case EntityDecoderState.NumericStart: {
-        (_a2 = this.errors) === null || _a2 === undefined || _a2.absenceOfDigitsInNumericCharacterReference(this.consumed);
+        (_a = this.errors) === null || _a === undefined || _a.absenceOfDigitsInNumericCharacterReference(this.consumed);
         return 0;
       }
       case EntityDecoderState.EntityStart: {
@@ -6003,63 +5989,63 @@ function determineBranch(decodeTree, current, nodeIndex, char) {
 
 // node_modules/htmlparser2/dist/esm/Tokenizer.js
 var CharCodes2;
-(function(CharCodes3) {
-  CharCodes3[CharCodes3["Tab"] = 9] = "Tab";
-  CharCodes3[CharCodes3["NewLine"] = 10] = "NewLine";
-  CharCodes3[CharCodes3["FormFeed"] = 12] = "FormFeed";
-  CharCodes3[CharCodes3["CarriageReturn"] = 13] = "CarriageReturn";
-  CharCodes3[CharCodes3["Space"] = 32] = "Space";
-  CharCodes3[CharCodes3["ExclamationMark"] = 33] = "ExclamationMark";
-  CharCodes3[CharCodes3["Number"] = 35] = "Number";
-  CharCodes3[CharCodes3["Amp"] = 38] = "Amp";
-  CharCodes3[CharCodes3["SingleQuote"] = 39] = "SingleQuote";
-  CharCodes3[CharCodes3["DoubleQuote"] = 34] = "DoubleQuote";
-  CharCodes3[CharCodes3["Dash"] = 45] = "Dash";
-  CharCodes3[CharCodes3["Slash"] = 47] = "Slash";
-  CharCodes3[CharCodes3["Zero"] = 48] = "Zero";
-  CharCodes3[CharCodes3["Nine"] = 57] = "Nine";
-  CharCodes3[CharCodes3["Semi"] = 59] = "Semi";
-  CharCodes3[CharCodes3["Lt"] = 60] = "Lt";
-  CharCodes3[CharCodes3["Eq"] = 61] = "Eq";
-  CharCodes3[CharCodes3["Gt"] = 62] = "Gt";
-  CharCodes3[CharCodes3["Questionmark"] = 63] = "Questionmark";
-  CharCodes3[CharCodes3["UpperA"] = 65] = "UpperA";
-  CharCodes3[CharCodes3["LowerA"] = 97] = "LowerA";
-  CharCodes3[CharCodes3["UpperF"] = 70] = "UpperF";
-  CharCodes3[CharCodes3["LowerF"] = 102] = "LowerF";
-  CharCodes3[CharCodes3["UpperZ"] = 90] = "UpperZ";
-  CharCodes3[CharCodes3["LowerZ"] = 122] = "LowerZ";
-  CharCodes3[CharCodes3["LowerX"] = 120] = "LowerX";
-  CharCodes3[CharCodes3["OpeningSquareBracket"] = 91] = "OpeningSquareBracket";
+(function(CharCodes) {
+  CharCodes[CharCodes["Tab"] = 9] = "Tab";
+  CharCodes[CharCodes["NewLine"] = 10] = "NewLine";
+  CharCodes[CharCodes["FormFeed"] = 12] = "FormFeed";
+  CharCodes[CharCodes["CarriageReturn"] = 13] = "CarriageReturn";
+  CharCodes[CharCodes["Space"] = 32] = "Space";
+  CharCodes[CharCodes["ExclamationMark"] = 33] = "ExclamationMark";
+  CharCodes[CharCodes["Number"] = 35] = "Number";
+  CharCodes[CharCodes["Amp"] = 38] = "Amp";
+  CharCodes[CharCodes["SingleQuote"] = 39] = "SingleQuote";
+  CharCodes[CharCodes["DoubleQuote"] = 34] = "DoubleQuote";
+  CharCodes[CharCodes["Dash"] = 45] = "Dash";
+  CharCodes[CharCodes["Slash"] = 47] = "Slash";
+  CharCodes[CharCodes["Zero"] = 48] = "Zero";
+  CharCodes[CharCodes["Nine"] = 57] = "Nine";
+  CharCodes[CharCodes["Semi"] = 59] = "Semi";
+  CharCodes[CharCodes["Lt"] = 60] = "Lt";
+  CharCodes[CharCodes["Eq"] = 61] = "Eq";
+  CharCodes[CharCodes["Gt"] = 62] = "Gt";
+  CharCodes[CharCodes["Questionmark"] = 63] = "Questionmark";
+  CharCodes[CharCodes["UpperA"] = 65] = "UpperA";
+  CharCodes[CharCodes["LowerA"] = 97] = "LowerA";
+  CharCodes[CharCodes["UpperF"] = 70] = "UpperF";
+  CharCodes[CharCodes["LowerF"] = 102] = "LowerF";
+  CharCodes[CharCodes["UpperZ"] = 90] = "UpperZ";
+  CharCodes[CharCodes["LowerZ"] = 122] = "LowerZ";
+  CharCodes[CharCodes["LowerX"] = 120] = "LowerX";
+  CharCodes[CharCodes["OpeningSquareBracket"] = 91] = "OpeningSquareBracket";
 })(CharCodes2 || (CharCodes2 = {}));
 var State;
-(function(State2) {
-  State2[State2["Text"] = 1] = "Text";
-  State2[State2["BeforeTagName"] = 2] = "BeforeTagName";
-  State2[State2["InTagName"] = 3] = "InTagName";
-  State2[State2["InSelfClosingTag"] = 4] = "InSelfClosingTag";
-  State2[State2["BeforeClosingTagName"] = 5] = "BeforeClosingTagName";
-  State2[State2["InClosingTagName"] = 6] = "InClosingTagName";
-  State2[State2["AfterClosingTagName"] = 7] = "AfterClosingTagName";
-  State2[State2["BeforeAttributeName"] = 8] = "BeforeAttributeName";
-  State2[State2["InAttributeName"] = 9] = "InAttributeName";
-  State2[State2["AfterAttributeName"] = 10] = "AfterAttributeName";
-  State2[State2["BeforeAttributeValue"] = 11] = "BeforeAttributeValue";
-  State2[State2["InAttributeValueDq"] = 12] = "InAttributeValueDq";
-  State2[State2["InAttributeValueSq"] = 13] = "InAttributeValueSq";
-  State2[State2["InAttributeValueNq"] = 14] = "InAttributeValueNq";
-  State2[State2["BeforeDeclaration"] = 15] = "BeforeDeclaration";
-  State2[State2["InDeclaration"] = 16] = "InDeclaration";
-  State2[State2["InProcessingInstruction"] = 17] = "InProcessingInstruction";
-  State2[State2["BeforeComment"] = 18] = "BeforeComment";
-  State2[State2["CDATASequence"] = 19] = "CDATASequence";
-  State2[State2["InSpecialComment"] = 20] = "InSpecialComment";
-  State2[State2["InCommentLike"] = 21] = "InCommentLike";
-  State2[State2["BeforeSpecialS"] = 22] = "BeforeSpecialS";
-  State2[State2["BeforeSpecialT"] = 23] = "BeforeSpecialT";
-  State2[State2["SpecialStartSequence"] = 24] = "SpecialStartSequence";
-  State2[State2["InSpecialTag"] = 25] = "InSpecialTag";
-  State2[State2["InEntity"] = 26] = "InEntity";
+(function(State) {
+  State[State["Text"] = 1] = "Text";
+  State[State["BeforeTagName"] = 2] = "BeforeTagName";
+  State[State["InTagName"] = 3] = "InTagName";
+  State[State["InSelfClosingTag"] = 4] = "InSelfClosingTag";
+  State[State["BeforeClosingTagName"] = 5] = "BeforeClosingTagName";
+  State[State["InClosingTagName"] = 6] = "InClosingTagName";
+  State[State["AfterClosingTagName"] = 7] = "AfterClosingTagName";
+  State[State["BeforeAttributeName"] = 8] = "BeforeAttributeName";
+  State[State["InAttributeName"] = 9] = "InAttributeName";
+  State[State["AfterAttributeName"] = 10] = "AfterAttributeName";
+  State[State["BeforeAttributeValue"] = 11] = "BeforeAttributeValue";
+  State[State["InAttributeValueDq"] = 12] = "InAttributeValueDq";
+  State[State["InAttributeValueSq"] = 13] = "InAttributeValueSq";
+  State[State["InAttributeValueNq"] = 14] = "InAttributeValueNq";
+  State[State["BeforeDeclaration"] = 15] = "BeforeDeclaration";
+  State[State["InDeclaration"] = 16] = "InDeclaration";
+  State[State["InProcessingInstruction"] = 17] = "InProcessingInstruction";
+  State[State["BeforeComment"] = 18] = "BeforeComment";
+  State[State["CDATASequence"] = 19] = "CDATASequence";
+  State[State["InSpecialComment"] = 20] = "InSpecialComment";
+  State[State["InCommentLike"] = 21] = "InCommentLike";
+  State[State["BeforeSpecialS"] = 22] = "BeforeSpecialS";
+  State[State["BeforeSpecialT"] = 23] = "BeforeSpecialT";
+  State[State["SpecialStartSequence"] = 24] = "SpecialStartSequence";
+  State[State["InSpecialTag"] = 25] = "InSpecialTag";
+  State[State["InEntity"] = 26] = "InEntity";
 })(State || (State = {}));
 function isWhitespace(c) {
   return c === CharCodes2.Space || c === CharCodes2.NewLine || c === CharCodes2.Tab || c === CharCodes2.FormFeed || c === CharCodes2.CarriageReturn;
@@ -6071,11 +6057,11 @@ function isASCIIAlpha(c) {
   return c >= CharCodes2.LowerA && c <= CharCodes2.LowerZ || c >= CharCodes2.UpperA && c <= CharCodes2.UpperZ;
 }
 var QuoteType;
-(function(QuoteType2) {
-  QuoteType2[QuoteType2["NoValue"] = 0] = "NoValue";
-  QuoteType2[QuoteType2["Unquoted"] = 1] = "Unquoted";
-  QuoteType2[QuoteType2["Single"] = 2] = "Single";
-  QuoteType2[QuoteType2["Double"] = 3] = "Double";
+(function(QuoteType) {
+  QuoteType[QuoteType["NoValue"] = 0] = "NoValue";
+  QuoteType[QuoteType["Unquoted"] = 1] = "Unquoted";
+  QuoteType[QuoteType["Single"] = 2] = "Single";
+  QuoteType[QuoteType["Double"] = 3] = "Double";
 })(QuoteType || (QuoteType = {}));
 var Sequences = {
   Cdata: new Uint8Array([67, 68, 65, 84, 65, 91]),
@@ -6761,7 +6747,7 @@ var reNameEnd = /\s|\//;
 
 class Parser {
   constructor(cbs, options = {}) {
-    var _a2, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f;
     this.options = options;
     this.startIndex = 0;
     this.endIndex = 0;
@@ -6777,7 +6763,7 @@ class Parser {
     this.ended = false;
     this.cbs = cbs !== null && cbs !== undefined ? cbs : {};
     this.htmlMode = !this.options.xmlMode;
-    this.lowerCaseTagNames = (_a2 = options.lowerCaseTags) !== null && _a2 !== undefined ? _a2 : this.htmlMode;
+    this.lowerCaseTagNames = (_a = options.lowerCaseTags) !== null && _a !== undefined ? _a : this.htmlMode;
     this.lowerCaseAttributeNames = (_b = options.lowerCaseAttributeNames) !== null && _b !== undefined ? _b : this.htmlMode;
     this.recognizeSelfClosing = (_c = options.recognizeSelfClosing) !== null && _c !== undefined ? _c : !this.htmlMode;
     this.tokenizer = new ((_d = options.Tokenizer) !== null && _d !== undefined ? _d : Tokenizer)(this.options, this);
@@ -6785,16 +6771,16 @@ class Parser {
     (_f = (_e = this.cbs).onparserinit) === null || _f === undefined || _f.call(_e, this);
   }
   ontext(start, endIndex) {
-    var _a2, _b;
+    var _a, _b;
     const data = this.getSlice(start, endIndex);
     this.endIndex = endIndex - 1;
-    (_b = (_a2 = this.cbs).ontext) === null || _b === undefined || _b.call(_a2, data);
+    (_b = (_a = this.cbs).ontext) === null || _b === undefined || _b.call(_a, data);
     this.startIndex = endIndex;
   }
   ontextentity(cp, endIndex) {
-    var _a2, _b;
+    var _a, _b;
     this.endIndex = endIndex - 1;
-    (_b = (_a2 = this.cbs).ontext) === null || _b === undefined || _b.call(_a2, fromCodePoint(cp));
+    (_b = (_a = this.cbs).ontext) === null || _b === undefined || _b.call(_a, fromCodePoint(cp));
     this.startIndex = endIndex;
   }
   isVoidElement(name) {
@@ -6809,14 +6795,14 @@ class Parser {
     this.emitOpenTag(name);
   }
   emitOpenTag(name) {
-    var _a2, _b, _c, _d;
+    var _a, _b, _c, _d;
     this.openTagStart = this.startIndex;
     this.tagname = name;
     const impliesClose = this.htmlMode && openImpliesClose.get(name);
     if (impliesClose) {
       while (this.stack.length > 0 && impliesClose.has(this.stack[0])) {
         const element = this.stack.shift();
-        (_b = (_a2 = this.cbs).onclosetag) === null || _b === undefined || _b.call(_a2, element, true);
+        (_b = (_a = this.cbs).onclosetag) === null || _b === undefined || _b.call(_a, element, true);
       }
     }
     if (!this.isVoidElement(name)) {
@@ -6834,10 +6820,10 @@ class Parser {
       this.attribs = {};
   }
   endOpenTag(isImplied) {
-    var _a2, _b;
+    var _a, _b;
     this.startIndex = this.openTagStart;
     if (this.attribs) {
-      (_b = (_a2 = this.cbs).onopentag) === null || _b === undefined || _b.call(_a2, this.tagname, this.attribs, isImplied);
+      (_b = (_a = this.cbs).onopentag) === null || _b === undefined || _b.call(_a, this.tagname, this.attribs, isImplied);
       this.attribs = null;
     }
     if (this.cbs.onclosetag && this.isVoidElement(this.tagname)) {
@@ -6851,7 +6837,7 @@ class Parser {
     this.startIndex = endIndex + 1;
   }
   onclosetag(start, endIndex) {
-    var _a2, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     this.endIndex = endIndex;
     let name = this.getSlice(start, endIndex);
     if (this.lowerCaseTagNames) {
@@ -6865,7 +6851,7 @@ class Parser {
       if (pos !== -1) {
         for (let index = 0;index <= pos; index++) {
           const element = this.stack.shift();
-          (_b = (_a2 = this.cbs).onclosetag) === null || _b === undefined || _b.call(_a2, element, index !== pos);
+          (_b = (_a = this.cbs).onclosetag) === null || _b === undefined || _b.call(_a, element, index !== pos);
         }
       } else if (this.htmlMode && name === "p") {
         this.emitOpenTag("p");
@@ -6888,11 +6874,11 @@ class Parser {
     }
   }
   closeCurrentTag(isOpenImplied) {
-    var _a2, _b;
+    var _a, _b;
     const name = this.tagname;
     this.endOpenTag(isOpenImplied);
     if (this.stack[0] === name) {
-      (_b = (_a2 = this.cbs).onclosetag) === null || _b === undefined || _b.call(_a2, name, !isOpenImplied);
+      (_b = (_a = this.cbs).onclosetag) === null || _b === undefined || _b.call(_a, name, !isOpenImplied);
       this.stack.shift();
     }
   }
@@ -6908,9 +6894,9 @@ class Parser {
     this.attribvalue += fromCodePoint(cp);
   }
   onattribend(quote, endIndex) {
-    var _a2, _b;
+    var _a, _b;
     this.endIndex = endIndex;
-    (_b = (_a2 = this.cbs).onattribute) === null || _b === undefined || _b.call(_a2, this.attribname, this.attribvalue, quote === QuoteType.Double ? '"' : quote === QuoteType.Single ? "'" : quote === QuoteType.NoValue ? undefined : null);
+    (_b = (_a = this.cbs).onattribute) === null || _b === undefined || _b.call(_a, this.attribname, this.attribvalue, quote === QuoteType.Double ? '"' : quote === QuoteType.Single ? "'" : quote === QuoteType.NoValue ? undefined : null);
     if (this.attribs && !Object.prototype.hasOwnProperty.call(this.attribs, this.attribname)) {
       this.attribs[this.attribname] = this.attribvalue;
     }
@@ -6943,18 +6929,18 @@ class Parser {
     this.startIndex = endIndex + 1;
   }
   oncomment(start, endIndex, offset) {
-    var _a2, _b, _c, _d;
+    var _a, _b, _c, _d;
     this.endIndex = endIndex;
-    (_b = (_a2 = this.cbs).oncomment) === null || _b === undefined || _b.call(_a2, this.getSlice(start, endIndex - offset));
+    (_b = (_a = this.cbs).oncomment) === null || _b === undefined || _b.call(_a, this.getSlice(start, endIndex - offset));
     (_d = (_c = this.cbs).oncommentend) === null || _d === undefined || _d.call(_c);
     this.startIndex = endIndex + 1;
   }
   oncdata(start, endIndex, offset) {
-    var _a2, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
     this.endIndex = endIndex;
     const value = this.getSlice(start, endIndex - offset);
     if (!this.htmlMode || this.options.recognizeCDATA) {
-      (_b = (_a2 = this.cbs).oncdatastart) === null || _b === undefined || _b.call(_a2);
+      (_b = (_a = this.cbs).oncdatastart) === null || _b === undefined || _b.call(_a);
       (_d = (_c = this.cbs).ontext) === null || _d === undefined || _d.call(_c, value);
       (_f = (_e = this.cbs).oncdataend) === null || _f === undefined || _f.call(_e);
     } else {
@@ -6964,18 +6950,18 @@ class Parser {
     this.startIndex = endIndex + 1;
   }
   onend() {
-    var _a2, _b;
+    var _a, _b;
     if (this.cbs.onclosetag) {
       this.endIndex = this.startIndex;
       for (let index = 0;index < this.stack.length; index++) {
         this.cbs.onclosetag(this.stack[index], true);
       }
     }
-    (_b = (_a2 = this.cbs).onend) === null || _b === undefined || _b.call(_a2);
+    (_b = (_a = this.cbs).onend) === null || _b === undefined || _b.call(_a);
   }
   reset() {
-    var _a2, _b, _c, _d;
-    (_b = (_a2 = this.cbs).onreset) === null || _b === undefined || _b.call(_a2);
+    var _a, _b, _c, _d;
+    (_b = (_a = this.cbs).onreset) === null || _b === undefined || _b.call(_a);
     this.tokenizer.reset();
     this.tagname = "";
     this.attribname = "";
@@ -7012,9 +6998,9 @@ class Parser {
     this.buffers.shift();
   }
   write(chunk) {
-    var _a2, _b;
+    var _a, _b;
     if (this.ended) {
-      (_b = (_a2 = this.cbs).onerror) === null || _b === undefined || _b.call(_a2, new Error(".write() after done!"));
+      (_b = (_a = this.cbs).onerror) === null || _b === undefined || _b.call(_a, new Error(".write() after done!"));
       return;
     }
     this.buffers.push(chunk);
@@ -7024,9 +7010,9 @@ class Parser {
     }
   }
   end(chunk) {
-    var _a2, _b;
+    var _a, _b;
     if (this.ended) {
-      (_b = (_a2 = this.cbs).onerror) === null || _b === undefined || _b.call(_a2, new Error(".end() after done!"));
+      (_b = (_a = this.cbs).onerror) === null || _b === undefined || _b.call(_a, new Error(".end() after done!"));
       return;
     }
     if (chunk)
@@ -7061,16 +7047,16 @@ function parseDocument(data, options) {
 
 // node_modules/cheerio/dist/esm/api/attributes.js
 var _a2;
-var hasOwn = (_a2 = Object.hasOwn) !== null && _a2 !== undefined ? _a2 : (object, prop) => Object.prototype.hasOwnProperty.call(object, prop);
+var hasOwn = (_a2 = Object.hasOwn) !== null && _a2 !== undefined ? _a2 : (object, prop2) => Object.prototype.hasOwnProperty.call(object, prop2);
 var rspace = /\s+/;
 var dataAttrPrefix = "data-";
 var rboolean = /^(?:autofocus|autoplay|async|checked|controls|defer|disabled|hidden|loop|multiple|open|readonly|required|scoped|selected)$/i;
 var rbrace = /^{[^]*}$|^\[[^]*]$/;
 function getAttr(elem, name, xmlMode) {
-  var _a3;
+  var _a;
   if (!elem || !isTag2(elem))
     return;
-  (_a3 = elem.attribs) !== null && _a3 !== undefined || (elem.attribs = {});
+  (_a = elem.attribs) !== null && _a !== undefined || (elem.attribs = {});
   if (!name) {
     return elem.attribs;
   }
@@ -7131,7 +7117,7 @@ function setProp(el, name, value, xmlMode) {
   }
 }
 function prop(name, value) {
-  var _a3;
+  var _a;
   if (typeof name === "string" && value === undefined) {
     const el = this[0];
     if (!el)
@@ -7156,7 +7142,7 @@ function prop(name, value) {
       case "src": {
         if (!isTag2(el))
           return;
-        const prop2 = (_a3 = el.attribs) === null || _a3 === undefined ? undefined : _a3[name];
+        const prop2 = (_a = el.attribs) === null || _a === undefined ? undefined : _a[name];
         if (typeof URL !== "undefined" && (name === "href" && (el.tagName === "a" || el.tagName === "link") || name === "src" && (el.tagName === "img" || el.tagName === "iframe" || el.tagName === "audio" || el.tagName === "video" || el.tagName === "source")) && prop2 !== undefined && this.options.baseURI) {
           return new URL(prop2, this.options.baseURI).href;
         }
@@ -7169,7 +7155,7 @@ function prop(name, value) {
         return textContent(el);
       }
       case "outerHTML": {
-        if (el.type === exports_esm.Root)
+        if (el.type === Root)
           return this.html();
         return this.clone().wrap("<container />").parent().html();
       }
@@ -7199,8 +7185,8 @@ function prop(name, value) {
         return;
       if (typeof name === "object") {
         for (const key of Object.keys(name)) {
-          const val = name[key];
-          setProp(el, key, val, this.options.xmlMode);
+          const val2 = name[key];
+          setProp(el, key, val2, this.options.xmlMode);
         }
       } else {
         setProp(el, name, value, this.options.xmlMode);
@@ -7210,8 +7196,8 @@ function prop(name, value) {
   return;
 }
 function setData(elem, name, value) {
-  var _a3;
-  (_a3 = elem.data) !== null && _a3 !== undefined || (elem.data = {});
+  var _a;
+  (_a = elem.data) !== null && _a !== undefined || (elem.data = {});
   if (typeof name === "object")
     Object.assign(elem.data, name);
   else if (typeof name === "string" && value !== undefined) {
@@ -7232,12 +7218,12 @@ function readAllData(el) {
 }
 function readData(el, name) {
   const domName = dataAttrPrefix + cssCase(name);
-  const data = el.data;
-  if (hasOwn(data, name)) {
-    return data[name];
+  const data2 = el.data;
+  if (hasOwn(data2, name)) {
+    return data2[name];
   }
   if (hasOwn(el.attribs, domName)) {
-    return data[name] = parseDataValue(el.attribs[domName]);
+    return data2[name] = parseDataValue(el.attribs[domName]);
   }
   return;
 }
@@ -7259,12 +7245,12 @@ function parseDataValue(value) {
   return value;
 }
 function data(name, value) {
-  var _a3;
+  var _a;
   const elem = this[0];
   if (!elem || !isTag2(elem))
     return;
   const dataEl = elem;
-  (_a3 = dataEl.data) !== null && _a3 !== undefined || (dataEl.data = {});
+  (_a = dataEl.data) !== null && _a !== undefined || (dataEl.data = {});
   if (name == null) {
     return readAllData(dataEl);
   }
@@ -7282,17 +7268,17 @@ function data(name, value) {
   return readData(dataEl, name);
 }
 function val(value) {
-  const querying2 = arguments.length === 0;
+  const querying = arguments.length === 0;
   const element = this[0];
   if (!element || !isTag2(element))
-    return querying2 ? undefined : this;
+    return querying ? undefined : this;
   switch (element.name) {
     case "textarea": {
       return this.text(value);
     }
     case "select": {
       const option = this.find("option:selected");
-      if (!querying2) {
+      if (!querying) {
         if (this.attr("multiple") == null && typeof value === "object") {
           return this;
         }
@@ -7308,7 +7294,7 @@ function val(value) {
     case "button":
     case "input":
     case "option": {
-      return querying2 ? this.attr("value") : this.attr("value", value);
+      return querying ? this.attr("value") : this.attr("value", value);
     }
   }
   return;
@@ -7482,29 +7468,29 @@ __export(exports_traversing, {
 
 // node_modules/css-what/lib/es/types.js
 var SelectorType;
-(function(SelectorType2) {
-  SelectorType2["Attribute"] = "attribute";
-  SelectorType2["Pseudo"] = "pseudo";
-  SelectorType2["PseudoElement"] = "pseudo-element";
-  SelectorType2["Tag"] = "tag";
-  SelectorType2["Universal"] = "universal";
-  SelectorType2["Adjacent"] = "adjacent";
-  SelectorType2["Child"] = "child";
-  SelectorType2["Descendant"] = "descendant";
-  SelectorType2["Parent"] = "parent";
-  SelectorType2["Sibling"] = "sibling";
-  SelectorType2["ColumnCombinator"] = "column-combinator";
+(function(SelectorType) {
+  SelectorType["Attribute"] = "attribute";
+  SelectorType["Pseudo"] = "pseudo";
+  SelectorType["PseudoElement"] = "pseudo-element";
+  SelectorType["Tag"] = "tag";
+  SelectorType["Universal"] = "universal";
+  SelectorType["Adjacent"] = "adjacent";
+  SelectorType["Child"] = "child";
+  SelectorType["Descendant"] = "descendant";
+  SelectorType["Parent"] = "parent";
+  SelectorType["Sibling"] = "sibling";
+  SelectorType["ColumnCombinator"] = "column-combinator";
 })(SelectorType || (SelectorType = {}));
 var AttributeAction;
-(function(AttributeAction2) {
-  AttributeAction2["Any"] = "any";
-  AttributeAction2["Element"] = "element";
-  AttributeAction2["End"] = "end";
-  AttributeAction2["Equals"] = "equals";
-  AttributeAction2["Exists"] = "exists";
-  AttributeAction2["Hyphen"] = "hyphen";
-  AttributeAction2["Not"] = "not";
-  AttributeAction2["Start"] = "start";
+(function(AttributeAction) {
+  AttributeAction["Any"] = "any";
+  AttributeAction["Element"] = "element";
+  AttributeAction["End"] = "end";
+  AttributeAction["Equals"] = "equals";
+  AttributeAction["Exists"] = "exists";
+  AttributeAction["Hyphen"] = "hyphen";
+  AttributeAction["Not"] = "not";
+  AttributeAction["Start"] = "start";
 })(AttributeAction || (AttributeAction = {}));
 // node_modules/css-what/lib/es/parse.js
 var reName = /^[^\\#]?(?:\\(?:[\da-f]{1,6}\s?|.)|[\w\-\u00b0-\uFFFF])+/;
@@ -7563,7 +7549,7 @@ function parse(selector) {
 }
 function parseSelector(subselects, selector, selectorIndex) {
   let tokens = [];
-  function getName2(offset) {
+  function getName(offset) {
     const match = selector.slice(selectorIndex + offset).match(reName);
     if (!match) {
       throw new Error(`Expected name, found ${selector.slice(selectorIndex)}`);
@@ -7618,7 +7604,7 @@ function parseSelector(subselects, selector, selectorIndex) {
       type: SelectorType.Attribute,
       name,
       action,
-      value: getName2(1),
+      value: getName(1),
       namespace: null,
       ignoreCase: "quirks"
     });
@@ -7685,15 +7671,15 @@ function parseSelector(subselects, selector, selectorIndex) {
           let name;
           let namespace = null;
           if (selector.charCodeAt(selectorIndex) === 124) {
-            name = getName2(1);
+            name = getName(1);
           } else if (selector.startsWith("*|", selectorIndex)) {
             namespace = "*";
-            name = getName2(2);
+            name = getName(2);
           } else {
-            name = getName2(0);
+            name = getName(0);
             if (selector.charCodeAt(selectorIndex) === 124 && selector.charCodeAt(selectorIndex + 1) !== 61) {
               namespace = name;
-              name = getName2(1);
+              name = getName(1);
             }
           }
           stripWhitespace(0);
@@ -7759,36 +7745,36 @@ function parseSelector(subselects, selector, selectorIndex) {
           if (selector.charCodeAt(selectorIndex + 1) === 58) {
             tokens.push({
               type: SelectorType.PseudoElement,
-              name: getName2(2).toLowerCase(),
+              name: getName(2).toLowerCase(),
               data: selector.charCodeAt(selectorIndex) === 40 ? readValueWithParenthesis() : null
             });
             continue;
           }
-          const name = getName2(1).toLowerCase();
-          let data2 = null;
+          const name = getName(1).toLowerCase();
+          let data = null;
           if (selector.charCodeAt(selectorIndex) === 40) {
             if (unpackPseudos.has(name)) {
               if (isQuote(selector.charCodeAt(selectorIndex + 1))) {
                 throw new Error(`Pseudo-selector ${name} cannot be quoted`);
               }
-              data2 = [];
-              selectorIndex = parseSelector(data2, selector, selectorIndex + 1);
+              data = [];
+              selectorIndex = parseSelector(data, selector, selectorIndex + 1);
               if (selector.charCodeAt(selectorIndex) !== 41) {
                 throw new Error(`Missing closing parenthesis in :${name} (${selector})`);
               }
               selectorIndex += 1;
             } else {
-              data2 = readValueWithParenthesis();
+              data = readValueWithParenthesis();
               if (stripQuotesFromPseudos.has(name)) {
-                const quot = data2.charCodeAt(0);
-                if (quot === data2.charCodeAt(data2.length - 1) && isQuote(quot)) {
-                  data2 = data2.slice(1, -1);
+                const quot = data.charCodeAt(0);
+                if (quot === data.charCodeAt(data.length - 1) && isQuote(quot)) {
+                  data = data.slice(1, -1);
                 }
               }
-              data2 = unescapeCSS(data2);
+              data = unescapeCSS(data);
             }
           }
-          tokens.push({ type: SelectorType.Pseudo, name, data: data2 });
+          tokens.push({ type: SelectorType.Pseudo, name, data });
           break;
         }
         case 44: {
@@ -7822,7 +7808,7 @@ function parseSelector(subselects, selector, selectorIndex) {
               break;
             }
           } else if (reName.test(selector.slice(selectorIndex))) {
-            name = getName2(0);
+            name = getName(0);
           } else {
             break loop;
           }
@@ -7832,7 +7818,7 @@ function parseSelector(subselects, selector, selectorIndex) {
               name = "*";
               selectorIndex += 2;
             } else {
-              name = getName2(1);
+              name = getName(1);
             }
           }
           tokens.push(name === "*" ? { type: SelectorType.Universal, namespace } : { type: SelectorType.Tag, name, namespace });
@@ -7882,8 +7868,8 @@ function sortByProcedure(arr) {
   }
 }
 function getProcedure(token) {
-  var _a3, _b;
-  let proc = (_a3 = procedure.get(token.type)) !== null && _a3 !== undefined ? _a3 : -1;
+  var _a, _b;
+  let proc = (_a = procedure.get(token.type)) !== null && _a !== undefined ? _a : -1;
   if (token.type === SelectorType.Attribute) {
     proc = (_b = attributes.get(token.action)) !== null && _b !== undefined ? _b : 4;
     if (token.action === AttributeAction.Equals && token.name === "id") {
@@ -7967,120 +7953,120 @@ function shouldIgnoreCase(selector, options) {
   return typeof selector.ignoreCase === "boolean" ? selector.ignoreCase : selector.ignoreCase === "quirks" ? !!options.quirksMode : !options.xmlMode && caseInsensitiveAttributes.has(selector.name);
 }
 var attributeRules = {
-  equals(next, data2, options) {
+  equals(next, data, options) {
     const { adapter } = options;
-    const { name } = data2;
-    let { value } = data2;
-    if (shouldIgnoreCase(data2, options)) {
+    const { name } = data;
+    let { value } = data;
+    if (shouldIgnoreCase(data, options)) {
       value = value.toLowerCase();
       return (elem) => {
-        const attr2 = adapter.getAttributeValue(elem, name);
-        return attr2 != null && attr2.length === value.length && attr2.toLowerCase() === value && next(elem);
+        const attr = adapter.getAttributeValue(elem, name);
+        return attr != null && attr.length === value.length && attr.toLowerCase() === value && next(elem);
       };
     }
     return (elem) => adapter.getAttributeValue(elem, name) === value && next(elem);
   },
-  hyphen(next, data2, options) {
+  hyphen(next, data, options) {
     const { adapter } = options;
-    const { name } = data2;
-    let { value } = data2;
+    const { name } = data;
+    let { value } = data;
     const len = value.length;
-    if (shouldIgnoreCase(data2, options)) {
+    if (shouldIgnoreCase(data, options)) {
       value = value.toLowerCase();
       return function hyphenIC(elem) {
-        const attr2 = adapter.getAttributeValue(elem, name);
-        return attr2 != null && (attr2.length === len || attr2.charAt(len) === "-") && attr2.substr(0, len).toLowerCase() === value && next(elem);
+        const attr = adapter.getAttributeValue(elem, name);
+        return attr != null && (attr.length === len || attr.charAt(len) === "-") && attr.substr(0, len).toLowerCase() === value && next(elem);
       };
     }
     return function hyphen(elem) {
-      const attr2 = adapter.getAttributeValue(elem, name);
-      return attr2 != null && (attr2.length === len || attr2.charAt(len) === "-") && attr2.substr(0, len) === value && next(elem);
+      const attr = adapter.getAttributeValue(elem, name);
+      return attr != null && (attr.length === len || attr.charAt(len) === "-") && attr.substr(0, len) === value && next(elem);
     };
   },
-  element(next, data2, options) {
+  element(next, data, options) {
     const { adapter } = options;
-    const { name, value } = data2;
+    const { name, value } = data;
     if (/\s/.test(value)) {
       return import_boolbase.default.falseFunc;
     }
-    const regex = new RegExp(`(?:^|\\s)${escapeRegex(value)}(?:$|\\s)`, shouldIgnoreCase(data2, options) ? "i" : "");
+    const regex = new RegExp(`(?:^|\\s)${escapeRegex(value)}(?:$|\\s)`, shouldIgnoreCase(data, options) ? "i" : "");
     return function element(elem) {
-      const attr2 = adapter.getAttributeValue(elem, name);
-      return attr2 != null && attr2.length >= value.length && regex.test(attr2) && next(elem);
+      const attr = adapter.getAttributeValue(elem, name);
+      return attr != null && attr.length >= value.length && regex.test(attr) && next(elem);
     };
   },
   exists(next, { name }, { adapter }) {
     return (elem) => adapter.hasAttrib(elem, name) && next(elem);
   },
-  start(next, data2, options) {
+  start(next, data, options) {
     const { adapter } = options;
-    const { name } = data2;
-    let { value } = data2;
+    const { name } = data;
+    let { value } = data;
     const len = value.length;
     if (len === 0) {
       return import_boolbase.default.falseFunc;
     }
-    if (shouldIgnoreCase(data2, options)) {
+    if (shouldIgnoreCase(data, options)) {
       value = value.toLowerCase();
       return (elem) => {
-        const attr2 = adapter.getAttributeValue(elem, name);
-        return attr2 != null && attr2.length >= len && attr2.substr(0, len).toLowerCase() === value && next(elem);
+        const attr = adapter.getAttributeValue(elem, name);
+        return attr != null && attr.length >= len && attr.substr(0, len).toLowerCase() === value && next(elem);
       };
     }
     return (elem) => {
-      var _a3;
-      return !!((_a3 = adapter.getAttributeValue(elem, name)) === null || _a3 === undefined ? undefined : _a3.startsWith(value)) && next(elem);
+      var _a;
+      return !!((_a = adapter.getAttributeValue(elem, name)) === null || _a === undefined ? undefined : _a.startsWith(value)) && next(elem);
     };
   },
-  end(next, data2, options) {
+  end(next, data, options) {
     const { adapter } = options;
-    const { name } = data2;
-    let { value } = data2;
+    const { name } = data;
+    let { value } = data;
     const len = -value.length;
     if (len === 0) {
       return import_boolbase.default.falseFunc;
     }
-    if (shouldIgnoreCase(data2, options)) {
+    if (shouldIgnoreCase(data, options)) {
       value = value.toLowerCase();
       return (elem) => {
-        var _a3;
-        return ((_a3 = adapter.getAttributeValue(elem, name)) === null || _a3 === undefined ? undefined : _a3.substr(len).toLowerCase()) === value && next(elem);
+        var _a;
+        return ((_a = adapter.getAttributeValue(elem, name)) === null || _a === undefined ? undefined : _a.substr(len).toLowerCase()) === value && next(elem);
       };
     }
     return (elem) => {
-      var _a3;
-      return !!((_a3 = adapter.getAttributeValue(elem, name)) === null || _a3 === undefined ? undefined : _a3.endsWith(value)) && next(elem);
+      var _a;
+      return !!((_a = adapter.getAttributeValue(elem, name)) === null || _a === undefined ? undefined : _a.endsWith(value)) && next(elem);
     };
   },
-  any(next, data2, options) {
+  any(next, data, options) {
     const { adapter } = options;
-    const { name, value } = data2;
+    const { name, value } = data;
     if (value === "") {
       return import_boolbase.default.falseFunc;
     }
-    if (shouldIgnoreCase(data2, options)) {
+    if (shouldIgnoreCase(data, options)) {
       const regex = new RegExp(escapeRegex(value), "i");
       return function anyIC(elem) {
-        const attr2 = adapter.getAttributeValue(elem, name);
-        return attr2 != null && attr2.length >= value.length && regex.test(attr2) && next(elem);
+        const attr = adapter.getAttributeValue(elem, name);
+        return attr != null && attr.length >= value.length && regex.test(attr) && next(elem);
       };
     }
     return (elem) => {
-      var _a3;
-      return !!((_a3 = adapter.getAttributeValue(elem, name)) === null || _a3 === undefined ? undefined : _a3.includes(value)) && next(elem);
+      var _a;
+      return !!((_a = adapter.getAttributeValue(elem, name)) === null || _a === undefined ? undefined : _a.includes(value)) && next(elem);
     };
   },
-  not(next, data2, options) {
+  not(next, data, options) {
     const { adapter } = options;
-    const { name } = data2;
-    let { value } = data2;
+    const { name } = data;
+    let { value } = data;
     if (value === "") {
       return (elem) => !!adapter.getAttributeValue(elem, name) && next(elem);
-    } else if (shouldIgnoreCase(data2, options)) {
+    } else if (shouldIgnoreCase(data, options)) {
       value = value.toLowerCase();
       return (elem) => {
-        const attr2 = adapter.getAttributeValue(elem, name);
-        return (attr2 == null || attr2.length !== value.length || attr2.toLowerCase() !== value) && next(elem);
+        const attr = adapter.getAttributeValue(elem, name);
+        return (attr == null || attr.length !== value.length || attr.toLowerCase() !== value) && next(elem);
       };
     }
     return (elem) => adapter.getAttributeValue(elem, name) !== value && next(elem);
@@ -8176,13 +8162,13 @@ function getChildFunc(next, adapter) {
   };
 }
 var filters = {
-  contains(next, text2, { adapter }) {
-    return function contains2(elem) {
-      return next(elem) && adapter.getText(elem).includes(text2);
+  contains(next, text, { adapter }) {
+    return function contains(elem) {
+      return next(elem) && adapter.getText(elem).includes(text);
     };
   },
-  icontains(next, text2, { adapter }) {
-    const itext = text2.toLowerCase();
+  icontains(next, text, { adapter }) {
+    const itext = text.toLowerCase();
     return function icontains(elem) {
       return next(elem) && adapter.getText(elem).toLowerCase().includes(itext);
     };
@@ -8300,13 +8286,13 @@ function dynamicStatePseudo(name) {
 // node_modules/css-select/lib/esm/pseudo-selectors/pseudos.js
 var pseudos = {
   empty(elem, { adapter }) {
-    return !adapter.getChildren(elem).some((elem2) => adapter.isTag(elem2) || adapter.getText(elem2) !== "");
+    return !adapter.getChildren(elem).some((elem) => adapter.isTag(elem) || adapter.getText(elem) !== "");
   },
   "first-child"(elem, { adapter, equals }) {
     if (adapter.prevElementSibling) {
       return adapter.prevElementSibling(elem) == null;
     }
-    const firstChild = adapter.getSiblings(elem).find((elem2) => adapter.isTag(elem2));
+    const firstChild = adapter.getSiblings(elem).find((elem) => adapter.isTag(elem));
     return firstChild != null && equals(elem, firstChild);
   },
   "last-child"(elem, { adapter, equals }) {
@@ -8458,41 +8444,41 @@ var subselects = {
 
 // node_modules/css-select/lib/esm/pseudo-selectors/index.js
 function compilePseudoSelector(next, selector, options, context, compileToken) {
-  var _a3;
-  const { name, data: data2 } = selector;
-  if (Array.isArray(data2)) {
+  var _a;
+  const { name, data } = selector;
+  if (Array.isArray(data)) {
     if (!(name in subselects)) {
-      throw new Error(`Unknown pseudo-class :${name}(${data2})`);
+      throw new Error(`Unknown pseudo-class :${name}(${data})`);
     }
-    return subselects[name](next, data2, options, context, compileToken);
+    return subselects[name](next, data, options, context, compileToken);
   }
-  const userPseudo = (_a3 = options.pseudos) === null || _a3 === undefined ? undefined : _a3[name];
+  const userPseudo = (_a = options.pseudos) === null || _a === undefined ? undefined : _a[name];
   const stringPseudo = typeof userPseudo === "string" ? userPseudo : aliases[name];
   if (typeof stringPseudo === "string") {
-    if (data2 != null) {
+    if (data != null) {
       throw new Error(`Pseudo ${name} doesn't have any arguments`);
     }
     const alias = parse(stringPseudo);
     return subselects["is"](next, alias, options, context, compileToken);
   }
   if (typeof userPseudo === "function") {
-    verifyPseudoArgs(userPseudo, name, data2, 1);
-    return (elem) => userPseudo(elem, data2) && next(elem);
+    verifyPseudoArgs(userPseudo, name, data, 1);
+    return (elem) => userPseudo(elem, data) && next(elem);
   }
   if (name in filters) {
-    return filters[name](next, data2, options, context);
+    return filters[name](next, data, options, context);
   }
   if (name in pseudos) {
     const pseudo = pseudos[name];
-    verifyPseudoArgs(pseudo, name, data2, 2);
-    return (elem) => pseudo(elem, options, data2) && next(elem);
+    verifyPseudoArgs(pseudo, name, data, 2);
+    return (elem) => pseudo(elem, options, data) && next(elem);
   }
   throw new Error(`Unknown pseudo-class :${name}`);
 }
 
 // node_modules/css-select/lib/esm/general.js
-function getElementParent(node2, adapter) {
-  const parent = adapter.getParent(node2);
+function getElementParent(node, adapter) {
+  const parent = adapter.getParent(node);
   if (parent && adapter.isTag(parent)) {
     return parent;
   }
@@ -8569,7 +8555,7 @@ function compileGeneralSelector(next, selector, options, context, compileToken) 
     }
     case SelectorType.Parent: {
       return function parent(elem) {
-        return adapter.getChildren(elem).some((elem2) => adapter.isTag(elem2) && next(elem2));
+        return adapter.getChildren(elem).some((elem) => adapter.isTag(elem) && next(elem));
       };
     }
     case SelectorType.Child: {
@@ -8632,7 +8618,7 @@ function compileUnsafe(selector, options, context) {
   return compileToken(token, options, context);
 }
 function includesScopePseudo(t) {
-  return t.type === SelectorType.Pseudo && (t.name === "scope" || Array.isArray(t.data) && t.data.some((data2) => data2.some(includesScopePseudo)));
+  return t.type === SelectorType.Pseudo && (t.name === "scope" || Array.isArray(t.data) && t.data.some((data) => data.some(includesScopePseudo)));
 }
 var DESCENDANT_TOKEN = { type: SelectorType.Descendant };
 var FLEXIBLE_DESCENDANT_TOKEN = {
@@ -8658,9 +8644,9 @@ function absolutize(token, { adapter }, context) {
   }
 }
 function compileToken(token, options, context) {
-  var _a3;
+  var _a;
   token.forEach(sortByProcedure);
-  context = (_a3 = options.context) !== null && _a3 !== undefined ? _a3 : context;
+  context = (_a = options.context) !== null && _a !== undefined ? _a : context;
   const isArrayContext = Array.isArray(context);
   const finalContext = context && (Array.isArray(context) ? context : [context]);
   if (options.relativeSelector !== false) {
@@ -8684,8 +8670,8 @@ function compileToken(token, options, context) {
   return query;
 }
 function compileRules(rules, options, context) {
-  var _a3;
-  return rules.reduce((previous, rule) => previous === import_boolbase5.default.falseFunc ? import_boolbase5.default.falseFunc : compileGeneralSelector(previous, rule, options, context, compileToken), (_a3 = options.rootFunc) !== null && _a3 !== undefined ? _a3 : import_boolbase5.default.trueFunc);
+  var _a;
+  return rules.reduce((previous, rule) => previous === import_boolbase5.default.falseFunc ? import_boolbase5.default.falseFunc : compileGeneralSelector(previous, rule, options, context, compileToken), (_a = options.rootFunc) !== null && _a !== undefined ? _a : import_boolbase5.default.trueFunc);
 }
 function reduceRules(a, b) {
   if (b === import_boolbase5.default.falseFunc || a === import_boolbase5.default.trueFunc) {
@@ -8706,9 +8692,9 @@ var defaultOptions = {
   equals: defaultEquals
 };
 function convertOptionFormats(options) {
-  var _a3, _b, _c, _d;
+  var _a, _b, _c, _d;
   const opts = options !== null && options !== undefined ? options : defaultOptions;
-  (_a3 = opts.adapter) !== null && _a3 !== undefined || (opts.adapter = exports_esm2);
+  (_a = opts.adapter) !== null && _a !== undefined || (opts.adapter = exports_esm2);
   (_b = opts.equals) !== null && _b !== undefined || (opts.equals = (_d = (_c = opts.adapter) === null || _c === undefined ? undefined : _c.equals) !== null && _d !== undefined ? _d : defaultEquals);
   return opts;
 }
@@ -8769,13 +8755,13 @@ function isFilter(s) {
   if (filterNames.has(s.name))
     return true;
   if (s.name === "not" && Array.isArray(s.data)) {
-    return s.data.some((s2) => s2.some(isFilter));
+    return s.data.some((s) => s.some(isFilter));
   }
   return false;
 }
-function getLimit(filter2, data2, partLimit) {
-  const num = data2 != null ? parseInt(data2, 10) : NaN;
-  switch (filter2) {
+function getLimit(filter, data, partLimit) {
+  const num = data != null ? parseInt(data, 10) : NaN;
+  switch (filter) {
     case "first":
       return 1;
     case "nth":
@@ -8796,10 +8782,10 @@ function getLimit(filter2, data2, partLimit) {
 }
 
 // node_modules/cheerio-select/lib/esm/helpers.js
-function getDocumentRoot(node2) {
-  while (node2.parent)
-    node2 = node2.parent;
-  return node2;
+function getDocumentRoot(node) {
+  while (node.parent)
+    node = node.parent;
+  return node;
 }
 function groupSelectors(selectors) {
   const filteredSelectors = [];
@@ -8833,9 +8819,9 @@ function some(elements, selector, options = {}) {
   const [plain, filtered] = groupSelectors(parse(selector));
   return plain.length > 0 && elements.some(_compileToken(plain, options)) || filtered.some((sel) => filterBySelector(sel, elements, options).length > 0);
 }
-function filterByPosition(filter2, elems, data2, options) {
-  const num = typeof data2 === "string" ? parseInt(data2, 10) : NaN;
-  switch (filter2) {
+function filterByPosition(filter, elems, data, options) {
+  const num = typeof data === "string" ? parseInt(data, 10) : NaN;
+  switch (filter) {
     case "first":
     case "lt":
       return elems;
@@ -8851,7 +8837,7 @@ function filterByPosition(filter2, elems, data2, options) {
     case "odd":
       return elems.filter((_, i) => i % 2 === 1);
     case "not": {
-      const filtered = new Set(filterParsed(data2, elems, options));
+      const filtered = new Set(filterParsed(data, elems, options));
       return elems.filter((e) => !filtered.has(e));
     }
   }
@@ -8893,23 +8879,23 @@ function filterParsed(selector, elements, options) {
   return typeof found !== "undefined" ? found.size === elements.length ? elements : elements.filter((el) => found.has(el)) : [];
 }
 function filterBySelector(selector, elements, options) {
-  var _a3;
+  var _a;
   if (selector.some(isTraversal)) {
-    const root2 = (_a3 = options.root) !== null && _a3 !== undefined ? _a3 : getDocumentRoot(elements[0]);
+    const root = (_a = options.root) !== null && _a !== undefined ? _a : getDocumentRoot(elements[0]);
     const opts = { ...options, context: elements, relativeSelector: false };
     selector.push(SCOPE_PSEUDO);
-    return findFilterElements(root2, selector, opts, true, elements.length);
+    return findFilterElements(root, selector, opts, true, elements.length);
   }
   return findFilterElements(elements, selector, options, false, elements.length);
 }
-function select(selector, root2, options = {}, limit = Infinity) {
+function select(selector, root, options = {}, limit = Infinity) {
   if (typeof selector === "function") {
-    return find2(root2, selector);
+    return find2(root, selector);
   }
   const [plain, filtered] = groupSelectors(parse(selector));
-  const results = filtered.map((sel) => findFilterElements(root2, sel, options, true, limit));
+  const results = filtered.map((sel) => findFilterElements(root, sel, options, true, limit));
   if (plain.length) {
-    results.push(findElements(root2, plain, options, limit));
+    results.push(findElements(root, plain, options, limit));
   }
   if (results.length === 0) {
     return [];
@@ -8919,17 +8905,17 @@ function select(selector, root2, options = {}, limit = Infinity) {
   }
   return uniqueSort(results.reduce((a, b) => [...a, ...b]));
 }
-function findFilterElements(root2, selector, options, queryForSelector, totalLimit) {
+function findFilterElements(root, selector, options, queryForSelector, totalLimit) {
   const filterIndex = selector.findIndex(isFilter);
   const sub = selector.slice(0, filterIndex);
-  const filter3 = selector[filterIndex];
+  const filter = selector[filterIndex];
   const partLimit = selector.length - 1 === filterIndex ? totalLimit : Infinity;
-  const limit = getLimit(filter3.name, filter3.data, partLimit);
+  const limit = getLimit(filter.name, filter.data, partLimit);
   if (limit === 0)
     return [];
-  const elemsNoLimit = sub.length === 0 && !Array.isArray(root2) ? getChildren(root2).filter(isTag2) : sub.length === 0 ? (Array.isArray(root2) ? root2 : [root2]).filter(isTag2) : queryForSelector || sub.some(isTraversal) ? findElements(root2, [sub], options, limit) : filterElements(root2, [sub], options);
+  const elemsNoLimit = sub.length === 0 && !Array.isArray(root) ? getChildren(root).filter(isTag2) : sub.length === 0 ? (Array.isArray(root) ? root : [root]).filter(isTag2) : queryForSelector || sub.some(isTraversal) ? findElements(root, [sub], options, limit) : filterElements(root, [sub], options);
   const elems = elemsNoLimit.slice(0, limit);
-  let result = filterByPosition(filter3.name, elems, filter3.data, options);
+  let result = filterByPosition(filter.name, elems, filter.data, options);
   if (result.length === 0 || selector.length === filterIndex + 1) {
     return result;
   }
@@ -8953,13 +8939,13 @@ function findFilterElements(root2, selector, options, queryForSelector, totalLim
   }
   return remainingSelector.some(isFilter) ? findFilterElements(result, remainingSelector, options, false, totalLimit) : remainingHasTraversal ? findElements(result, [remainingSelector], options, totalLimit) : filterElements(result, [remainingSelector], options);
 }
-function findElements(root2, sel, options, limit) {
-  const query = _compileToken(sel, options, root2);
-  return find2(root2, query, limit);
+function findElements(root, sel, options, limit) {
+  const query = _compileToken(sel, options, root);
+  return find2(root, query, limit);
 }
-function find2(root2, query, limit = Infinity) {
-  const elems = prepareContext(root2, exports_esm2, query.shouldTestNextSiblings);
-  return find((node2) => isTag2(node2) && query(node2), elems, true, limit);
+function find2(root, query, limit = Infinity) {
+  const elems = prepareContext(root, exports_esm2, query.shouldTestNextSiblings);
+  return find((node) => isTag2(node) && query(node), elems, true, limit);
 }
 function filterElements(elements, sel, options) {
   const els = (Array.isArray(elements) ? elements : [elements]).filter(isTag2);
@@ -8978,17 +8964,17 @@ function find3(selectorOrHaystack) {
   if (typeof selectorOrHaystack !== "string") {
     const haystack = isCheerio(selectorOrHaystack) ? selectorOrHaystack.toArray() : [selectorOrHaystack];
     const context = this.toArray();
-    return this._make(haystack.filter((elem) => context.some((node2) => contains(node2, elem))));
+    return this._make(haystack.filter((elem) => context.some((node) => contains(node, elem))));
   }
   return this._findBySelector(selectorOrHaystack, Number.POSITIVE_INFINITY);
 }
 function _findBySelector(selector, limit) {
-  var _a3;
+  var _a;
   const context = this.toArray();
   const elems = reContextSelector.test(selector) ? context : this.children().toArray();
   const options = {
     context,
-    root: (_a3 = this._root) === null || _a3 === undefined ? undefined : _a3[0],
+    root: (_a = this._root) === null || _a === undefined ? undefined : _a[0],
     xmlMode: this.options.xmlMode,
     lowerCaseTags: this.options.lowerCaseTags,
     lowerCaseAttributeNames: this.options.lowerCaseAttributeNames,
@@ -9000,12 +8986,12 @@ function _findBySelector(selector, limit) {
 function _getMatcher(matchMap) {
   return function(fn, ...postFns) {
     return function(selector) {
-      var _a3;
+      var _a;
       let matched = matchMap(fn, this);
       if (selector) {
-        matched = filterArray(matched, selector, this.options.xmlMode, (_a3 = this._root) === null || _a3 === undefined ? undefined : _a3[0]);
+        matched = filterArray(matched, selector, this.options.xmlMode, (_a = this._root) === null || _a === undefined ? undefined : _a[0]);
       }
-      return this._make(this.length > 1 && matched.length > 1 ? postFns.reduce((elems, fn2) => fn2(elems), matched) : matched);
+      return this._make(this.length > 1 && matched.length > 1 ? postFns.reduce((elems, fn) => fn(elems), matched) : matched);
     };
   };
 }
@@ -9030,13 +9016,13 @@ var _singleMatcher = _getMatcher((fn, elems) => {
 });
 function _matchUntil(nextElem, ...postFns) {
   let matches = null;
-  const innerMatcher = _getMatcher((nextElem2, elems) => {
+  const innerMatcher = _getMatcher((nextElem, elems) => {
     const matched = [];
     domEach(elems, (elem) => {
-      for (let next;next = nextElem2(elem); elem = next) {
-        if (matches === null || matches === undefined ? undefined : matches(next, matched.length))
+      for (let next2;next2 = nextElem(elem); elem = next2) {
+        if (matches === null || matches === undefined ? undefined : matches(next2, matched.length))
           break;
-        matched.push(next);
+        matched.push(next2);
       }
     });
     return matched;
@@ -9062,14 +9048,14 @@ var parents = _matcher((elem) => {
 }, uniqueSort, (elems) => elems.reverse());
 var parentsUntil = _matchUntil(({ parent: parent2 }) => parent2 && !isDocument(parent2) ? parent2 : null, uniqueSort, (elems) => elems.reverse());
 function closest(selector) {
-  var _a3;
+  var _a;
   const set = [];
   if (!selector) {
     return this._make(set);
   }
   const selectOpts = {
     xmlMode: this.options.xmlMode,
-    root: (_a3 = this._root) === null || _a3 === undefined ? undefined : _a3[0]
+    root: (_a = this._root) === null || _a === undefined ? undefined : _a[0]
   };
   const selectFn = typeof selector === "string" ? (elem) => is2(elem, selector, selectOpts) : getFilterFn(selector);
   domEach(this, (elem) => {
@@ -9127,9 +9113,9 @@ function map(fn) {
   let elems = [];
   for (let i = 0;i < this.length; i++) {
     const el = this[i];
-    const val2 = fn.call(el, i, el);
-    if (val2 != null) {
-      elems = elems.concat(val2);
+    const val = fn.call(el, i, el);
+    if (val != null) {
+      elems = elems.concat(val);
     }
   }
   return this._make(elems);
@@ -9146,11 +9132,11 @@ function getFilterFn(match) {
   };
 }
 function filter3(match) {
-  var _a3;
-  return this._make(filterArray(this.toArray(), match, this.options.xmlMode, (_a3 = this._root) === null || _a3 === undefined ? undefined : _a3[0]));
+  var _a;
+  return this._make(filterArray(this.toArray(), match, this.options.xmlMode, (_a = this._root) === null || _a === undefined ? undefined : _a[0]));
 }
-function filterArray(nodes, match, xmlMode, root2) {
-  return typeof match === "string" ? filter2(match, nodes, { xmlMode, root: root2 }) : nodes.filter(getFilterFn(match));
+function filterArray(nodes, match, xmlMode, root) {
+  return typeof match === "string" ? filter2(match, nodes, { xmlMode, root }) : nodes.filter(getFilterFn(match));
 }
 function is3(selector) {
   const nodes = this.toArray();
@@ -9177,13 +9163,13 @@ function last() {
   return this.length > 0 ? this._make(this[this.length - 1]) : this;
 }
 function eq(i) {
-  var _a3;
+  var _a;
   i = +i;
   if (i === 0 && this.length <= 1)
     return this;
   if (i < 0)
     i = this.length + i;
-  return this._make((_a3 = this[i]) !== null && _a3 !== undefined ? _a3 : []);
+  return this._make((_a = this[i]) !== null && _a !== undefined ? _a : []);
 }
 function get(i) {
   if (i == null) {
@@ -9209,12 +9195,12 @@ function index(selectorOrNeedle) {
   }
   return Array.prototype.indexOf.call($haystack, needle);
 }
-function slice(start, end) {
-  return this._make(Array.prototype.slice.call(this, start, end));
+function slice(start, end2) {
+  return this._make(Array.prototype.slice.call(this, start, end2));
 }
 function end() {
-  var _a3;
-  return (_a3 = this.prevObject) !== null && _a3 !== undefined ? _a3 : this._make([]);
+  var _a;
+  return (_a = this.prevObject) !== null && _a !== undefined ? _a : this._make([]);
 }
 function add(other, context) {
   const selection = this._make(other, context);
@@ -9252,7 +9238,7 @@ __export(exports_manipulation, {
 
 // node_modules/cheerio/dist/esm/parse.js
 function getParse(parser) {
-  return function parse3(content, options, isDocument2, context) {
+  return function parse(content, options, isDocument2, context) {
     if (typeof Buffer !== "undefined" && Buffer.isBuffer(content)) {
       content = content.toString();
     }
@@ -9263,36 +9249,36 @@ function getParse(parser) {
     if (!Array.isArray(doc) && isDocument(doc)) {
       return doc;
     }
-    const root2 = new Document([]);
-    update(doc, root2);
-    return root2;
+    const root = new Document([]);
+    update(doc, root);
+    return root;
   };
 }
-function update(newChilds, parent2) {
+function update(newChilds, parent) {
   const arr = Array.isArray(newChilds) ? newChilds : [newChilds];
-  if (parent2) {
-    parent2.children = arr;
+  if (parent) {
+    parent.children = arr;
   } else {
-    parent2 = null;
+    parent = null;
   }
   for (let i = 0;i < arr.length; i++) {
-    const node2 = arr[i];
-    if (node2.parent && node2.parent.children !== arr) {
-      removeElement(node2);
+    const node = arr[i];
+    if (node.parent && node.parent.children !== arr) {
+      removeElement(node);
     }
-    if (parent2) {
-      node2.prev = arr[i - 1] || null;
-      node2.next = arr[i + 1] || null;
+    if (parent) {
+      node.prev = arr[i - 1] || null;
+      node.next = arr[i + 1] || null;
     } else {
-      node2.prev = node2.next = null;
+      node.prev = node.next = null;
     }
-    node2.parent = parent2;
+    node.parent = parent;
   }
-  return parent2;
+  return parent;
 }
 
 // node_modules/cheerio/dist/esm/api/manipulation.js
-function _makeDomArray(elem, clone) {
+function _makeDomArray(elem, clone2) {
   if (elem == null) {
     return [];
   }
@@ -9301,7 +9287,7 @@ function _makeDomArray(elem, clone) {
   }
   if ("length" in elem) {
     if (elem.length === 1) {
-      return this._makeDomArray(elem[0], clone);
+      return this._makeDomArray(elem[0], clone2);
     }
     const result = [];
     for (let i = 0;i < elem.length; i++) {
@@ -9311,15 +9297,15 @@ function _makeDomArray(elem, clone) {
           continue;
         }
         if (!("length" in el)) {
-          result.push(clone ? cloneNode(el, true) : el);
+          result.push(clone2 ? cloneNode(el, true) : el);
           continue;
         }
       }
-      result.push(...this._makeDomArray(el, clone));
+      result.push(...this._makeDomArray(el, clone2));
     }
     return result;
   }
-  return [clone ? cloneNode(elem, true) : elem];
+  return [clone2 ? cloneNode(elem, true) : elem];
 }
 function _insert(concatenator) {
   return function(...elems) {
@@ -9333,43 +9319,43 @@ function _insert(concatenator) {
     });
   };
 }
-function uniqueSplice(array, spliceIdx, spliceCount, newElems, parent2) {
-  var _a3, _b;
+function uniqueSplice(array, spliceIdx, spliceCount, newElems, parent) {
+  var _a, _b;
   const spliceArgs = [
     spliceIdx,
     spliceCount,
     ...newElems
   ];
-  const prev2 = spliceIdx === 0 ? null : array[spliceIdx - 1];
-  const next2 = spliceIdx + spliceCount >= array.length ? null : array[spliceIdx + spliceCount];
+  const prev = spliceIdx === 0 ? null : array[spliceIdx - 1];
+  const next = spliceIdx + spliceCount >= array.length ? null : array[spliceIdx + spliceCount];
   for (let idx = 0;idx < newElems.length; ++idx) {
-    const node2 = newElems[idx];
-    const oldParent = node2.parent;
+    const node = newElems[idx];
+    const oldParent = node.parent;
     if (oldParent) {
       const oldSiblings = oldParent.children;
-      const prevIdx = oldSiblings.indexOf(node2);
+      const prevIdx = oldSiblings.indexOf(node);
       if (prevIdx !== -1) {
         oldParent.children.splice(prevIdx, 1);
-        if (parent2 === oldParent && spliceIdx > prevIdx) {
+        if (parent === oldParent && spliceIdx > prevIdx) {
           spliceArgs[0]--;
         }
       }
     }
-    node2.parent = parent2;
-    if (node2.prev) {
-      node2.prev.next = (_a3 = node2.next) !== null && _a3 !== undefined ? _a3 : null;
+    node.parent = parent;
+    if (node.prev) {
+      node.prev.next = (_a = node.next) !== null && _a !== undefined ? _a : null;
     }
-    if (node2.next) {
-      node2.next.prev = (_b = node2.prev) !== null && _b !== undefined ? _b : null;
+    if (node.next) {
+      node.next.prev = (_b = node.prev) !== null && _b !== undefined ? _b : null;
     }
-    node2.prev = idx === 0 ? prev2 : newElems[idx - 1];
-    node2.next = idx === newElems.length - 1 ? next2 : newElems[idx + 1];
+    node.prev = idx === 0 ? prev : newElems[idx - 1];
+    node.next = idx === newElems.length - 1 ? next : newElems[idx + 1];
   }
-  if (prev2) {
-    prev2.next = newElems[0];
+  if (prev) {
+    prev.next = newElems[0];
   }
-  if (next2) {
-    next2.prev = newElems[newElems.length - 1];
+  if (next) {
+    next.prev = newElems[newElems.length - 1];
   }
   return array.splice(...spliceArgs);
 }
@@ -9383,11 +9369,11 @@ function prependTo(target) {
   prependTarget.prepend(this);
   return this;
 }
-var append2 = _insert((dom, children2, parent2) => {
-  uniqueSplice(children2, children2.length, 0, dom, parent2);
+var append2 = _insert((dom, children, parent) => {
+  uniqueSplice(children, children.length, 0, dom, parent);
 });
-var prepend2 = _insert((dom, children2, parent2) => {
-  uniqueSplice(children2, 0, 0, dom, parent2);
+var prepend2 = _insert((dom, children, parent) => {
+  uniqueSplice(children, 0, 0, dom, parent);
 });
 function _wrap(insert) {
   return function(wrapper) {
@@ -9395,8 +9381,8 @@ function _wrap(insert) {
     const lastParent = this.parents().last();
     for (let i = 0;i < this.length; i++) {
       const el = this[i];
-      const wrap = typeof wrapper === "function" ? wrapper.call(el, i, el) : typeof wrapper === "string" && !isHtml(wrapper) ? lastParent.find(wrapper).clone() : wrapper;
-      const [wrapperDom] = this._makeDomArray(wrap, i < lastIdx);
+      const wrap2 = typeof wrapper === "function" ? wrapper.call(el, i, el) : typeof wrapper === "string" && !isHtml(wrapper) ? lastParent.find(wrapper).clone() : wrapper;
+      const [wrapperDom] = this._makeDomArray(wrap2, i < lastIdx);
       if (!wrapperDom || !hasChildren(wrapperDom))
         continue;
       let elInsertLocation = wrapperDom;
@@ -9416,13 +9402,13 @@ function _wrap(insert) {
   };
 }
 var wrap = _wrap((el, elInsertLocation, wrapperDom) => {
-  const { parent: parent2 } = el;
-  if (!parent2)
+  const { parent } = el;
+  if (!parent)
     return;
-  const siblings2 = parent2.children;
-  const index2 = siblings2.indexOf(el);
+  const siblings = parent.children;
+  const index = siblings.indexOf(el);
   update([el], elInsertLocation);
-  uniqueSplice(siblings2, index2, 0, wrapperDom, parent2);
+  uniqueSplice(siblings, index, 0, wrapperDom, parent);
 });
 var wrapInner = _wrap((el, elInsertLocation, wrapperDom) => {
   if (!hasChildren(el))
@@ -9442,14 +9428,14 @@ function wrapAll(wrapper) {
     const wrap2 = this._make(typeof wrapper === "function" ? wrapper.call(el, 0, el) : wrapper).insertBefore(el);
     let elInsertLocation;
     for (let i = 0;i < wrap2.length; i++) {
-      if (wrap2[i].type === exports_esm.Tag) {
+      if (wrap2[i].type === Tag) {
         elInsertLocation = wrap2[i];
       }
     }
     let j = 0;
     while (elInsertLocation && j < elInsertLocation.children.length) {
       const child = elInsertLocation.children[j];
-      if (child.type === exports_esm.Tag) {
+      if (child.type === Tag) {
         elInsertLocation = child;
         j = 0;
       } else {
@@ -9467,13 +9453,13 @@ function after(...elems) {
     if (!hasChildren(el) || !el.parent) {
       return;
     }
-    const siblings2 = el.parent.children;
-    const index2 = siblings2.indexOf(el);
-    if (index2 === -1)
+    const siblings = el.parent.children;
+    const index = siblings.indexOf(el);
+    if (index === -1)
       return;
     const domSrc = typeof elems[0] === "function" ? elems[0].call(el, i, this._render(el.children)) : elems;
     const dom = this._makeDomArray(domSrc, i < lastIdx);
-    uniqueSplice(siblings2, index2 + 1, 0, dom, el.parent);
+    uniqueSplice(siblings, index + 1, 0, dom, el.parent);
   });
 }
 function insertAfter(target) {
@@ -9484,15 +9470,15 @@ function insertAfter(target) {
   const clones = [];
   for (const el of this._makeDomArray(target)) {
     const clonedSelf = this.clone().toArray();
-    const { parent: parent2 } = el;
-    if (!parent2) {
+    const { parent } = el;
+    if (!parent) {
       continue;
     }
-    const siblings2 = parent2.children;
-    const index2 = siblings2.indexOf(el);
-    if (index2 === -1)
+    const siblings = parent.children;
+    const index = siblings.indexOf(el);
+    if (index === -1)
       continue;
-    uniqueSplice(siblings2, index2 + 1, 0, clonedSelf, parent2);
+    uniqueSplice(siblings, index + 1, 0, clonedSelf, parent);
     clones.push(...clonedSelf);
   }
   return this._make(clones);
@@ -9503,13 +9489,13 @@ function before(...elems) {
     if (!hasChildren(el) || !el.parent) {
       return;
     }
-    const siblings2 = el.parent.children;
-    const index2 = siblings2.indexOf(el);
-    if (index2 === -1)
+    const siblings = el.parent.children;
+    const index = siblings.indexOf(el);
+    if (index === -1)
       return;
     const domSrc = typeof elems[0] === "function" ? elems[0].call(el, i, this._render(el.children)) : elems;
     const dom = this._makeDomArray(domSrc, i < lastIdx);
-    uniqueSplice(siblings2, index2, 0, dom, el.parent);
+    uniqueSplice(siblings, index, 0, dom, el.parent);
   });
 }
 function insertBefore(target) {
@@ -9518,15 +9504,15 @@ function insertBefore(target) {
   const clones = [];
   domEach(targetArr, (el) => {
     const clonedSelf = this.clone().toArray();
-    const { parent: parent2 } = el;
-    if (!parent2) {
+    const { parent } = el;
+    if (!parent) {
       return;
     }
-    const siblings2 = parent2.children;
-    const index2 = siblings2.indexOf(el);
-    if (index2 === -1)
+    const siblings = parent.children;
+    const index = siblings.indexOf(el);
+    if (index === -1)
       return;
-    uniqueSplice(siblings2, index2, 0, clonedSelf, parent2);
+    uniqueSplice(siblings, index, 0, clonedSelf, parent);
     clones.push(...clonedSelf);
   });
   return this._make(clones);
@@ -9541,16 +9527,16 @@ function remove(selector) {
 }
 function replaceWith(content) {
   return domEach(this, (el, i) => {
-    const { parent: parent2 } = el;
-    if (!parent2) {
+    const { parent } = el;
+    if (!parent) {
       return;
     }
-    const siblings2 = parent2.children;
+    const siblings = parent.children;
     const cont = typeof content === "function" ? content.call(el, i, el) : content;
     const dom = this._makeDomArray(cont);
     update(dom, null);
-    const index2 = siblings2.indexOf(el);
-    uniqueSplice(siblings2, index2, 1, dom, parent2);
+    const index = siblings.indexOf(el);
+    uniqueSplice(siblings, index, 1, dom, parent);
     if (!dom.includes(el)) {
       el.parent = el.prev = el.next = null;
     }
@@ -9605,9 +9591,9 @@ function text2(str) {
 }
 function clone() {
   const clone2 = Array.prototype.map.call(this.get(), (el) => cloneNode(el, true));
-  const root2 = new Document(clone2);
-  for (const node2 of clone2) {
-    node2.parent = root2;
+  const root = new Document(clone2);
+  for (const node of clone2) {
+    node.parent = root;
   }
   return this._make(clone2);
 }
@@ -9617,47 +9603,47 @@ var exports_css = {};
 __export(exports_css, {
   css: () => css
 });
-function css(prop2, val2) {
-  if (prop2 != null && val2 != null || typeof prop2 === "object" && !Array.isArray(prop2)) {
+function css(prop, val) {
+  if (prop != null && val != null || typeof prop === "object" && !Array.isArray(prop)) {
     return domEach(this, (el, i) => {
       if (isTag2(el)) {
-        setCss(el, prop2, val2, i);
+        setCss(el, prop, val, i);
       }
     });
   }
   if (this.length === 0) {
     return;
   }
-  return getCss(this[0], prop2);
+  return getCss(this[0], prop);
 }
-function setCss(el, prop2, value, idx) {
-  if (typeof prop2 === "string") {
+function setCss(el, prop, value, idx) {
+  if (typeof prop === "string") {
     const styles = getCss(el);
-    const val2 = typeof value === "function" ? value.call(el, idx, styles[prop2]) : value;
-    if (val2 === "") {
-      delete styles[prop2];
-    } else if (val2 != null) {
-      styles[prop2] = val2;
+    const val = typeof value === "function" ? value.call(el, idx, styles[prop]) : value;
+    if (val === "") {
+      delete styles[prop];
+    } else if (val != null) {
+      styles[prop] = val;
     }
     el.attribs["style"] = stringify3(styles);
-  } else if (typeof prop2 === "object") {
-    const keys = Object.keys(prop2);
+  } else if (typeof prop === "object") {
+    const keys = Object.keys(prop);
     for (let i = 0;i < keys.length; i++) {
       const k = keys[i];
-      setCss(el, k, prop2[k], i);
+      setCss(el, k, prop[k], i);
     }
   }
 }
-function getCss(el, prop2) {
+function getCss(el, prop) {
   if (!el || !isTag2(el))
     return;
   const styles = parse3(el.attribs["style"]);
-  if (typeof prop2 === "string") {
-    return styles[prop2];
+  if (typeof prop === "string") {
+    return styles[prop];
   }
-  if (Array.isArray(prop2)) {
+  if (Array.isArray(prop)) {
     const newStyles = {};
-    for (const item of prop2) {
+    for (const item of prop) {
       if (styles[item] != null) {
         newStyles[item] = styles[item];
       }
@@ -9667,7 +9653,7 @@ function getCss(el, prop2) {
   return styles;
 }
 function stringify3(obj) {
-  return Object.keys(obj).reduce((str, prop2) => `${str}${str ? " " : ""}${prop2}: ${obj[prop2]};`, "");
+  return Object.keys(obj).reduce((str, prop) => `${str}${str ? " " : ""}${prop}: ${obj[prop]};`, "");
 }
 function parse3(styles) {
   styles = (styles || "").trim();
@@ -9701,7 +9687,7 @@ var r20 = /%20/g;
 var rCRLF = /\r?\n/g;
 function serialize() {
   const arr = this.serializeArray();
-  const retArr = arr.map((data2) => `${encodeURIComponent(data2.name)}=${encodeURIComponent(data2.value)}`);
+  const retArr = arr.map((data) => `${encodeURIComponent(data.name)}=${encodeURIComponent(data.value)}`);
   return retArr.join("&").replace(r20, "+");
 }
 function serializeArray() {
@@ -9712,12 +9698,12 @@ function serializeArray() {
     }
     return $elem.filter(submittableSelector).toArray();
   }).filter('[name!=""]:enabled' + ":not(:submit, :button, :image, :reset, :file)" + ":matches([checked], :not(:checkbox, :radio))").map((_, elem) => {
-    var _a3;
+    var _a;
     const $elem = this._make(elem);
     const name = $elem.attr("name");
-    const value = (_a3 = $elem.val()) !== null && _a3 !== undefined ? _a3 : "";
+    const value = (_a = $elem.val()) !== null && _a !== undefined ? _a : "";
     if (Array.isArray(value)) {
-      return value.map((val2) => ({ name, value: val2.replace(rCRLF, `\r
+      return value.map((val) => ({ name, value: val.replace(rCRLF, `\r
 `) }));
     }
     return { name, value: value.replace(rCRLF, `\r
@@ -9731,19 +9717,19 @@ __export(exports_extract, {
   extract: () => extract2
 });
 function getExtractDescr(descr) {
-  var _a3;
+  var _a;
   if (typeof descr === "string") {
     return { selector: descr, value: "textContent" };
   }
   return {
     selector: descr.selector,
-    value: (_a3 = descr.value) !== null && _a3 !== undefined ? _a3 : "textContent"
+    value: (_a = descr.value) !== null && _a !== undefined ? _a : "textContent"
   };
 }
-function extract2(map2) {
+function extract2(map) {
   const ret = {};
-  for (const key in map2) {
-    const descr = map2[key];
+  for (const key in map) {
+    const descr = map[key];
     const isArray = Array.isArray(descr);
     const { selector, value } = getExtractDescr(isArray ? descr[0] : descr);
     const fn = typeof value === "function" ? value : typeof value === "string" ? (el) => this._make(el).prop(value) : (el) => this._make(el).extract(value);
@@ -9759,10 +9745,10 @@ function extract2(map2) {
 
 // node_modules/cheerio/dist/esm/cheerio.js
 class Cheerio {
-  constructor(elements, root2, options) {
+  constructor(elements, root, options) {
     this.length = 0;
     this.options = options;
-    this._root = root2;
+    this._root = root;
     if (elements) {
       for (let idx = 0;idx < elements.length; idx++) {
         this[idx] = elements[idx];
@@ -9777,13 +9763,13 @@ Cheerio.prototype[Symbol.iterator] = Array.prototype[Symbol.iterator];
 Object.assign(Cheerio.prototype, exports_attributes, exports_traversing, exports_manipulation, exports_css, exports_forms, exports_extract);
 
 // node_modules/cheerio/dist/esm/load.js
-function getLoad(parse4, render3) {
-  return function load(content, options, isDocument2 = true) {
+function getLoad(parse, render) {
+  return function load(content, options, isDocument = true) {
     if (content == null) {
       throw new Error("cheerio.load() expects a string");
     }
     const internalOpts = flattenOptions(options);
-    const initialRoot = parse4(content, internalOpts, isDocument2, null);
+    const initialRoot = parse(content, internalOpts, isDocument, null);
 
     class LoadedCheerio extends Cheerio {
       _make(selector, context) {
@@ -9791,25 +9777,25 @@ function getLoad(parse4, render3) {
         cheerio.prevObject = this;
         return cheerio;
       }
-      _parse(content2, options2, isDocument3, context) {
-        return parse4(content2, options2, isDocument3, context);
+      _parse(content, options, isDocument, context) {
+        return parse(content, options, isDocument, context);
       }
       _render(dom) {
-        return render3(dom, this.options);
+        return render(dom, this.options);
       }
     }
-    function initialize(selector, context, root2 = initialRoot, opts) {
+    function initialize(selector, context, root = initialRoot, opts) {
       if (selector && isCheerio(selector))
         return selector;
-      const options2 = flattenOptions(opts, internalOpts);
-      const r = typeof root2 === "string" ? [parse4(root2, options2, false, null)] : ("length" in root2) ? root2 : [root2];
-      const rootInstance = isCheerio(r) ? r : new LoadedCheerio(r, null, options2);
+      const options = flattenOptions(opts, internalOpts);
+      const r = typeof root === "string" ? [parse(root, options, false, null)] : ("length" in root) ? root : [root];
+      const rootInstance = isCheerio(r) ? r : new LoadedCheerio(r, null, options);
       rootInstance._root = rootInstance;
       if (!selector) {
-        return new LoadedCheerio(undefined, rootInstance, options2);
+        return new LoadedCheerio(undefined, rootInstance, options);
       }
-      const elements = typeof selector === "string" && isHtml(selector) ? parse4(selector, options2, false, null).children : isNode(selector) ? [selector] : Array.isArray(selector) ? selector : undefined;
-      const instance = new LoadedCheerio(elements, rootInstance, options2);
+      const elements = typeof selector === "string" && isHtml(selector) ? parse(selector, options, false, null).children : isNode(selector) ? [selector] : Array.isArray(selector) ? selector : undefined;
+      const instance = new LoadedCheerio(elements, rootInstance, options);
       if (elements) {
         return instance;
       }
@@ -9817,7 +9803,7 @@ function getLoad(parse4, render3) {
         throw new TypeError("Unexpected type of selector");
       }
       let search = selector;
-      const searchContext = context ? typeof context === "string" ? isHtml(context) ? new LoadedCheerio([parse4(context, options2, false, null)], rootInstance, options2) : (search = `${context} ${search}`, rootInstance) : isCheerio(context) ? context : new LoadedCheerio(Array.isArray(context) ? context : [context], rootInstance, options2) : rootInstance;
+      const searchContext = context ? typeof context === "string" ? isHtml(context) ? new LoadedCheerio([parse(context, options, false, null)], rootInstance, options) : (search = `${context} ${search}`, rootInstance) : isCheerio(context) ? context : new LoadedCheerio(Array.isArray(context) ? context : [context], rootInstance, options) : rootInstance;
       if (!searchContext)
         return instance;
       return searchContext.find(search);
@@ -9833,7 +9819,7 @@ function getLoad(parse4, render3) {
   };
 }
 function isNode(obj) {
-  return !!obj.name || obj.type === exports_esm.Root || obj.type === exports_esm.Text || obj.type === exports_esm.Comment;
+  return !!obj.name || obj.type === Root || obj.type === Text || obj.type === Comment;
 }
 
 // node_modules/parse5/dist/common/unicode.js
@@ -9875,33 +9861,33 @@ var UNDEFINED_CODE_POINTS = new Set([
 ]);
 var REPLACEMENT_CHARACTER = "\uFFFD";
 var CODE_POINTS;
-(function(CODE_POINTS2) {
-  CODE_POINTS2[CODE_POINTS2["EOF"] = -1] = "EOF";
-  CODE_POINTS2[CODE_POINTS2["NULL"] = 0] = "NULL";
-  CODE_POINTS2[CODE_POINTS2["TABULATION"] = 9] = "TABULATION";
-  CODE_POINTS2[CODE_POINTS2["CARRIAGE_RETURN"] = 13] = "CARRIAGE_RETURN";
-  CODE_POINTS2[CODE_POINTS2["LINE_FEED"] = 10] = "LINE_FEED";
-  CODE_POINTS2[CODE_POINTS2["FORM_FEED"] = 12] = "FORM_FEED";
-  CODE_POINTS2[CODE_POINTS2["SPACE"] = 32] = "SPACE";
-  CODE_POINTS2[CODE_POINTS2["EXCLAMATION_MARK"] = 33] = "EXCLAMATION_MARK";
-  CODE_POINTS2[CODE_POINTS2["QUOTATION_MARK"] = 34] = "QUOTATION_MARK";
-  CODE_POINTS2[CODE_POINTS2["AMPERSAND"] = 38] = "AMPERSAND";
-  CODE_POINTS2[CODE_POINTS2["APOSTROPHE"] = 39] = "APOSTROPHE";
-  CODE_POINTS2[CODE_POINTS2["HYPHEN_MINUS"] = 45] = "HYPHEN_MINUS";
-  CODE_POINTS2[CODE_POINTS2["SOLIDUS"] = 47] = "SOLIDUS";
-  CODE_POINTS2[CODE_POINTS2["DIGIT_0"] = 48] = "DIGIT_0";
-  CODE_POINTS2[CODE_POINTS2["DIGIT_9"] = 57] = "DIGIT_9";
-  CODE_POINTS2[CODE_POINTS2["SEMICOLON"] = 59] = "SEMICOLON";
-  CODE_POINTS2[CODE_POINTS2["LESS_THAN_SIGN"] = 60] = "LESS_THAN_SIGN";
-  CODE_POINTS2[CODE_POINTS2["EQUALS_SIGN"] = 61] = "EQUALS_SIGN";
-  CODE_POINTS2[CODE_POINTS2["GREATER_THAN_SIGN"] = 62] = "GREATER_THAN_SIGN";
-  CODE_POINTS2[CODE_POINTS2["QUESTION_MARK"] = 63] = "QUESTION_MARK";
-  CODE_POINTS2[CODE_POINTS2["LATIN_CAPITAL_A"] = 65] = "LATIN_CAPITAL_A";
-  CODE_POINTS2[CODE_POINTS2["LATIN_CAPITAL_Z"] = 90] = "LATIN_CAPITAL_Z";
-  CODE_POINTS2[CODE_POINTS2["RIGHT_SQUARE_BRACKET"] = 93] = "RIGHT_SQUARE_BRACKET";
-  CODE_POINTS2[CODE_POINTS2["GRAVE_ACCENT"] = 96] = "GRAVE_ACCENT";
-  CODE_POINTS2[CODE_POINTS2["LATIN_SMALL_A"] = 97] = "LATIN_SMALL_A";
-  CODE_POINTS2[CODE_POINTS2["LATIN_SMALL_Z"] = 122] = "LATIN_SMALL_Z";
+(function(CODE_POINTS) {
+  CODE_POINTS[CODE_POINTS["EOF"] = -1] = "EOF";
+  CODE_POINTS[CODE_POINTS["NULL"] = 0] = "NULL";
+  CODE_POINTS[CODE_POINTS["TABULATION"] = 9] = "TABULATION";
+  CODE_POINTS[CODE_POINTS["CARRIAGE_RETURN"] = 13] = "CARRIAGE_RETURN";
+  CODE_POINTS[CODE_POINTS["LINE_FEED"] = 10] = "LINE_FEED";
+  CODE_POINTS[CODE_POINTS["FORM_FEED"] = 12] = "FORM_FEED";
+  CODE_POINTS[CODE_POINTS["SPACE"] = 32] = "SPACE";
+  CODE_POINTS[CODE_POINTS["EXCLAMATION_MARK"] = 33] = "EXCLAMATION_MARK";
+  CODE_POINTS[CODE_POINTS["QUOTATION_MARK"] = 34] = "QUOTATION_MARK";
+  CODE_POINTS[CODE_POINTS["AMPERSAND"] = 38] = "AMPERSAND";
+  CODE_POINTS[CODE_POINTS["APOSTROPHE"] = 39] = "APOSTROPHE";
+  CODE_POINTS[CODE_POINTS["HYPHEN_MINUS"] = 45] = "HYPHEN_MINUS";
+  CODE_POINTS[CODE_POINTS["SOLIDUS"] = 47] = "SOLIDUS";
+  CODE_POINTS[CODE_POINTS["DIGIT_0"] = 48] = "DIGIT_0";
+  CODE_POINTS[CODE_POINTS["DIGIT_9"] = 57] = "DIGIT_9";
+  CODE_POINTS[CODE_POINTS["SEMICOLON"] = 59] = "SEMICOLON";
+  CODE_POINTS[CODE_POINTS["LESS_THAN_SIGN"] = 60] = "LESS_THAN_SIGN";
+  CODE_POINTS[CODE_POINTS["EQUALS_SIGN"] = 61] = "EQUALS_SIGN";
+  CODE_POINTS[CODE_POINTS["GREATER_THAN_SIGN"] = 62] = "GREATER_THAN_SIGN";
+  CODE_POINTS[CODE_POINTS["QUESTION_MARK"] = 63] = "QUESTION_MARK";
+  CODE_POINTS[CODE_POINTS["LATIN_CAPITAL_A"] = 65] = "LATIN_CAPITAL_A";
+  CODE_POINTS[CODE_POINTS["LATIN_CAPITAL_Z"] = 90] = "LATIN_CAPITAL_Z";
+  CODE_POINTS[CODE_POINTS["RIGHT_SQUARE_BRACKET"] = 93] = "RIGHT_SQUARE_BRACKET";
+  CODE_POINTS[CODE_POINTS["GRAVE_ACCENT"] = 96] = "GRAVE_ACCENT";
+  CODE_POINTS[CODE_POINTS["LATIN_SMALL_A"] = 97] = "LATIN_SMALL_A";
+  CODE_POINTS[CODE_POINTS["LATIN_SMALL_Z"] = 122] = "LATIN_SMALL_Z";
 })(CODE_POINTS || (CODE_POINTS = {}));
 var SEQUENCES = {
   DASH_DASH: "--",
@@ -9929,67 +9915,67 @@ function isUndefinedCodePoint(cp) {
 
 // node_modules/parse5/dist/common/error-codes.js
 var ERR;
-(function(ERR2) {
-  ERR2["controlCharacterInInputStream"] = "control-character-in-input-stream";
-  ERR2["noncharacterInInputStream"] = "noncharacter-in-input-stream";
-  ERR2["surrogateInInputStream"] = "surrogate-in-input-stream";
-  ERR2["nonVoidHtmlElementStartTagWithTrailingSolidus"] = "non-void-html-element-start-tag-with-trailing-solidus";
-  ERR2["endTagWithAttributes"] = "end-tag-with-attributes";
-  ERR2["endTagWithTrailingSolidus"] = "end-tag-with-trailing-solidus";
-  ERR2["unexpectedSolidusInTag"] = "unexpected-solidus-in-tag";
-  ERR2["unexpectedNullCharacter"] = "unexpected-null-character";
-  ERR2["unexpectedQuestionMarkInsteadOfTagName"] = "unexpected-question-mark-instead-of-tag-name";
-  ERR2["invalidFirstCharacterOfTagName"] = "invalid-first-character-of-tag-name";
-  ERR2["unexpectedEqualsSignBeforeAttributeName"] = "unexpected-equals-sign-before-attribute-name";
-  ERR2["missingEndTagName"] = "missing-end-tag-name";
-  ERR2["unexpectedCharacterInAttributeName"] = "unexpected-character-in-attribute-name";
-  ERR2["unknownNamedCharacterReference"] = "unknown-named-character-reference";
-  ERR2["missingSemicolonAfterCharacterReference"] = "missing-semicolon-after-character-reference";
-  ERR2["unexpectedCharacterAfterDoctypeSystemIdentifier"] = "unexpected-character-after-doctype-system-identifier";
-  ERR2["unexpectedCharacterInUnquotedAttributeValue"] = "unexpected-character-in-unquoted-attribute-value";
-  ERR2["eofBeforeTagName"] = "eof-before-tag-name";
-  ERR2["eofInTag"] = "eof-in-tag";
-  ERR2["missingAttributeValue"] = "missing-attribute-value";
-  ERR2["missingWhitespaceBetweenAttributes"] = "missing-whitespace-between-attributes";
-  ERR2["missingWhitespaceAfterDoctypePublicKeyword"] = "missing-whitespace-after-doctype-public-keyword";
-  ERR2["missingWhitespaceBetweenDoctypePublicAndSystemIdentifiers"] = "missing-whitespace-between-doctype-public-and-system-identifiers";
-  ERR2["missingWhitespaceAfterDoctypeSystemKeyword"] = "missing-whitespace-after-doctype-system-keyword";
-  ERR2["missingQuoteBeforeDoctypePublicIdentifier"] = "missing-quote-before-doctype-public-identifier";
-  ERR2["missingQuoteBeforeDoctypeSystemIdentifier"] = "missing-quote-before-doctype-system-identifier";
-  ERR2["missingDoctypePublicIdentifier"] = "missing-doctype-public-identifier";
-  ERR2["missingDoctypeSystemIdentifier"] = "missing-doctype-system-identifier";
-  ERR2["abruptDoctypePublicIdentifier"] = "abrupt-doctype-public-identifier";
-  ERR2["abruptDoctypeSystemIdentifier"] = "abrupt-doctype-system-identifier";
-  ERR2["cdataInHtmlContent"] = "cdata-in-html-content";
-  ERR2["incorrectlyOpenedComment"] = "incorrectly-opened-comment";
-  ERR2["eofInScriptHtmlCommentLikeText"] = "eof-in-script-html-comment-like-text";
-  ERR2["eofInDoctype"] = "eof-in-doctype";
-  ERR2["nestedComment"] = "nested-comment";
-  ERR2["abruptClosingOfEmptyComment"] = "abrupt-closing-of-empty-comment";
-  ERR2["eofInComment"] = "eof-in-comment";
-  ERR2["incorrectlyClosedComment"] = "incorrectly-closed-comment";
-  ERR2["eofInCdata"] = "eof-in-cdata";
-  ERR2["absenceOfDigitsInNumericCharacterReference"] = "absence-of-digits-in-numeric-character-reference";
-  ERR2["nullCharacterReference"] = "null-character-reference";
-  ERR2["surrogateCharacterReference"] = "surrogate-character-reference";
-  ERR2["characterReferenceOutsideUnicodeRange"] = "character-reference-outside-unicode-range";
-  ERR2["controlCharacterReference"] = "control-character-reference";
-  ERR2["noncharacterCharacterReference"] = "noncharacter-character-reference";
-  ERR2["missingWhitespaceBeforeDoctypeName"] = "missing-whitespace-before-doctype-name";
-  ERR2["missingDoctypeName"] = "missing-doctype-name";
-  ERR2["invalidCharacterSequenceAfterDoctypeName"] = "invalid-character-sequence-after-doctype-name";
-  ERR2["duplicateAttribute"] = "duplicate-attribute";
-  ERR2["nonConformingDoctype"] = "non-conforming-doctype";
-  ERR2["missingDoctype"] = "missing-doctype";
-  ERR2["misplacedDoctype"] = "misplaced-doctype";
-  ERR2["endTagWithoutMatchingOpenElement"] = "end-tag-without-matching-open-element";
-  ERR2["closingOfElementWithOpenChildElements"] = "closing-of-element-with-open-child-elements";
-  ERR2["disallowedContentInNoscriptInHead"] = "disallowed-content-in-noscript-in-head";
-  ERR2["openElementsLeftAfterEof"] = "open-elements-left-after-eof";
-  ERR2["abandonedHeadElementChild"] = "abandoned-head-element-child";
-  ERR2["misplacedStartTagForHeadElement"] = "misplaced-start-tag-for-head-element";
-  ERR2["nestedNoscriptInHead"] = "nested-noscript-in-head";
-  ERR2["eofInElementThatCanContainOnlyText"] = "eof-in-element-that-can-contain-only-text";
+(function(ERR) {
+  ERR["controlCharacterInInputStream"] = "control-character-in-input-stream";
+  ERR["noncharacterInInputStream"] = "noncharacter-in-input-stream";
+  ERR["surrogateInInputStream"] = "surrogate-in-input-stream";
+  ERR["nonVoidHtmlElementStartTagWithTrailingSolidus"] = "non-void-html-element-start-tag-with-trailing-solidus";
+  ERR["endTagWithAttributes"] = "end-tag-with-attributes";
+  ERR["endTagWithTrailingSolidus"] = "end-tag-with-trailing-solidus";
+  ERR["unexpectedSolidusInTag"] = "unexpected-solidus-in-tag";
+  ERR["unexpectedNullCharacter"] = "unexpected-null-character";
+  ERR["unexpectedQuestionMarkInsteadOfTagName"] = "unexpected-question-mark-instead-of-tag-name";
+  ERR["invalidFirstCharacterOfTagName"] = "invalid-first-character-of-tag-name";
+  ERR["unexpectedEqualsSignBeforeAttributeName"] = "unexpected-equals-sign-before-attribute-name";
+  ERR["missingEndTagName"] = "missing-end-tag-name";
+  ERR["unexpectedCharacterInAttributeName"] = "unexpected-character-in-attribute-name";
+  ERR["unknownNamedCharacterReference"] = "unknown-named-character-reference";
+  ERR["missingSemicolonAfterCharacterReference"] = "missing-semicolon-after-character-reference";
+  ERR["unexpectedCharacterAfterDoctypeSystemIdentifier"] = "unexpected-character-after-doctype-system-identifier";
+  ERR["unexpectedCharacterInUnquotedAttributeValue"] = "unexpected-character-in-unquoted-attribute-value";
+  ERR["eofBeforeTagName"] = "eof-before-tag-name";
+  ERR["eofInTag"] = "eof-in-tag";
+  ERR["missingAttributeValue"] = "missing-attribute-value";
+  ERR["missingWhitespaceBetweenAttributes"] = "missing-whitespace-between-attributes";
+  ERR["missingWhitespaceAfterDoctypePublicKeyword"] = "missing-whitespace-after-doctype-public-keyword";
+  ERR["missingWhitespaceBetweenDoctypePublicAndSystemIdentifiers"] = "missing-whitespace-between-doctype-public-and-system-identifiers";
+  ERR["missingWhitespaceAfterDoctypeSystemKeyword"] = "missing-whitespace-after-doctype-system-keyword";
+  ERR["missingQuoteBeforeDoctypePublicIdentifier"] = "missing-quote-before-doctype-public-identifier";
+  ERR["missingQuoteBeforeDoctypeSystemIdentifier"] = "missing-quote-before-doctype-system-identifier";
+  ERR["missingDoctypePublicIdentifier"] = "missing-doctype-public-identifier";
+  ERR["missingDoctypeSystemIdentifier"] = "missing-doctype-system-identifier";
+  ERR["abruptDoctypePublicIdentifier"] = "abrupt-doctype-public-identifier";
+  ERR["abruptDoctypeSystemIdentifier"] = "abrupt-doctype-system-identifier";
+  ERR["cdataInHtmlContent"] = "cdata-in-html-content";
+  ERR["incorrectlyOpenedComment"] = "incorrectly-opened-comment";
+  ERR["eofInScriptHtmlCommentLikeText"] = "eof-in-script-html-comment-like-text";
+  ERR["eofInDoctype"] = "eof-in-doctype";
+  ERR["nestedComment"] = "nested-comment";
+  ERR["abruptClosingOfEmptyComment"] = "abrupt-closing-of-empty-comment";
+  ERR["eofInComment"] = "eof-in-comment";
+  ERR["incorrectlyClosedComment"] = "incorrectly-closed-comment";
+  ERR["eofInCdata"] = "eof-in-cdata";
+  ERR["absenceOfDigitsInNumericCharacterReference"] = "absence-of-digits-in-numeric-character-reference";
+  ERR["nullCharacterReference"] = "null-character-reference";
+  ERR["surrogateCharacterReference"] = "surrogate-character-reference";
+  ERR["characterReferenceOutsideUnicodeRange"] = "character-reference-outside-unicode-range";
+  ERR["controlCharacterReference"] = "control-character-reference";
+  ERR["noncharacterCharacterReference"] = "noncharacter-character-reference";
+  ERR["missingWhitespaceBeforeDoctypeName"] = "missing-whitespace-before-doctype-name";
+  ERR["missingDoctypeName"] = "missing-doctype-name";
+  ERR["invalidCharacterSequenceAfterDoctypeName"] = "invalid-character-sequence-after-doctype-name";
+  ERR["duplicateAttribute"] = "duplicate-attribute";
+  ERR["nonConformingDoctype"] = "non-conforming-doctype";
+  ERR["missingDoctype"] = "missing-doctype";
+  ERR["misplacedDoctype"] = "misplaced-doctype";
+  ERR["endTagWithoutMatchingOpenElement"] = "end-tag-without-matching-open-element";
+  ERR["closingOfElementWithOpenChildElements"] = "closing-of-element-with-open-child-elements";
+  ERR["disallowedContentInNoscriptInHead"] = "disallowed-content-in-noscript-in-head";
+  ERR["openElementsLeftAfterEof"] = "open-elements-left-after-eof";
+  ERR["abandonedHeadElementChild"] = "abandoned-head-element-child";
+  ERR["misplacedStartTagForHeadElement"] = "misplaced-start-tag-for-head-element";
+  ERR["nestedNoscriptInHead"] = "nested-noscript-in-head";
+  ERR["eofInElementThatCanContainOnlyText"] = "eof-in-element-that-can-contain-only-text";
 })(ERR || (ERR = {}));
 
 // node_modules/parse5/dist/tokenizer/preprocessor.js
@@ -10163,16 +10149,16 @@ class Preprocessor {
 
 // node_modules/parse5/dist/common/token.js
 var TokenType;
-(function(TokenType2) {
-  TokenType2[TokenType2["CHARACTER"] = 0] = "CHARACTER";
-  TokenType2[TokenType2["NULL_CHARACTER"] = 1] = "NULL_CHARACTER";
-  TokenType2[TokenType2["WHITESPACE_CHARACTER"] = 2] = "WHITESPACE_CHARACTER";
-  TokenType2[TokenType2["START_TAG"] = 3] = "START_TAG";
-  TokenType2[TokenType2["END_TAG"] = 4] = "END_TAG";
-  TokenType2[TokenType2["COMMENT"] = 5] = "COMMENT";
-  TokenType2[TokenType2["DOCTYPE"] = 6] = "DOCTYPE";
-  TokenType2[TokenType2["EOF"] = 7] = "EOF";
-  TokenType2[TokenType2["HIBERNATION"] = 8] = "HIBERNATION";
+(function(TokenType) {
+  TokenType[TokenType["CHARACTER"] = 0] = "CHARACTER";
+  TokenType[TokenType["NULL_CHARACTER"] = 1] = "NULL_CHARACTER";
+  TokenType[TokenType["WHITESPACE_CHARACTER"] = 2] = "WHITESPACE_CHARACTER";
+  TokenType[TokenType["START_TAG"] = 3] = "START_TAG";
+  TokenType[TokenType["END_TAG"] = 4] = "END_TAG";
+  TokenType[TokenType["COMMENT"] = 5] = "COMMENT";
+  TokenType[TokenType["DOCTYPE"] = 6] = "DOCTYPE";
+  TokenType[TokenType["EOF"] = 7] = "EOF";
+  TokenType[TokenType["HIBERNATION"] = 8] = "HIBERNATION";
 })(TokenType || (TokenType = {}));
 function getTokenAttr(token, attrName) {
   for (let i = token.attrs.length - 1;i >= 0; i--) {
@@ -10229,34 +10215,34 @@ var fromCodePoint2 = (_a3 = String.fromCodePoint) !== null && _a3 !== undefined 
   return output;
 };
 function replaceCodePoint2(codePoint) {
-  var _a4;
+  var _a;
   if (codePoint >= 55296 && codePoint <= 57343 || codePoint > 1114111) {
     return 65533;
   }
-  return (_a4 = decodeMap2.get(codePoint)) !== null && _a4 !== undefined ? _a4 : codePoint;
+  return (_a = decodeMap2.get(codePoint)) !== null && _a !== undefined ? _a : codePoint;
 }
 // node_modules/parse5/node_modules/entities/dist/esm/decode.js
 var CharCodes3;
-(function(CharCodes4) {
-  CharCodes4[CharCodes4["NUM"] = 35] = "NUM";
-  CharCodes4[CharCodes4["SEMI"] = 59] = "SEMI";
-  CharCodes4[CharCodes4["EQUALS"] = 61] = "EQUALS";
-  CharCodes4[CharCodes4["ZERO"] = 48] = "ZERO";
-  CharCodes4[CharCodes4["NINE"] = 57] = "NINE";
-  CharCodes4[CharCodes4["LOWER_A"] = 97] = "LOWER_A";
-  CharCodes4[CharCodes4["LOWER_F"] = 102] = "LOWER_F";
-  CharCodes4[CharCodes4["LOWER_X"] = 120] = "LOWER_X";
-  CharCodes4[CharCodes4["LOWER_Z"] = 122] = "LOWER_Z";
-  CharCodes4[CharCodes4["UPPER_A"] = 65] = "UPPER_A";
-  CharCodes4[CharCodes4["UPPER_F"] = 70] = "UPPER_F";
-  CharCodes4[CharCodes4["UPPER_Z"] = 90] = "UPPER_Z";
+(function(CharCodes) {
+  CharCodes[CharCodes["NUM"] = 35] = "NUM";
+  CharCodes[CharCodes["SEMI"] = 59] = "SEMI";
+  CharCodes[CharCodes["EQUALS"] = 61] = "EQUALS";
+  CharCodes[CharCodes["ZERO"] = 48] = "ZERO";
+  CharCodes[CharCodes["NINE"] = 57] = "NINE";
+  CharCodes[CharCodes["LOWER_A"] = 97] = "LOWER_A";
+  CharCodes[CharCodes["LOWER_F"] = 102] = "LOWER_F";
+  CharCodes[CharCodes["LOWER_X"] = 120] = "LOWER_X";
+  CharCodes[CharCodes["LOWER_Z"] = 122] = "LOWER_Z";
+  CharCodes[CharCodes["UPPER_A"] = 65] = "UPPER_A";
+  CharCodes[CharCodes["UPPER_F"] = 70] = "UPPER_F";
+  CharCodes[CharCodes["UPPER_Z"] = 90] = "UPPER_Z";
 })(CharCodes3 || (CharCodes3 = {}));
 var TO_LOWER_BIT2 = 32;
 var BinTrieFlags2;
-(function(BinTrieFlags3) {
-  BinTrieFlags3[BinTrieFlags3["VALUE_LENGTH"] = 49152] = "VALUE_LENGTH";
-  BinTrieFlags3[BinTrieFlags3["BRANCH_LENGTH"] = 16256] = "BRANCH_LENGTH";
-  BinTrieFlags3[BinTrieFlags3["JUMP_TABLE"] = 127] = "JUMP_TABLE";
+(function(BinTrieFlags) {
+  BinTrieFlags[BinTrieFlags["VALUE_LENGTH"] = 49152] = "VALUE_LENGTH";
+  BinTrieFlags[BinTrieFlags["BRANCH_LENGTH"] = 16256] = "BRANCH_LENGTH";
+  BinTrieFlags[BinTrieFlags["JUMP_TABLE"] = 127] = "JUMP_TABLE";
 })(BinTrieFlags2 || (BinTrieFlags2 = {}));
 function isNumber2(code) {
   return code >= CharCodes3.ZERO && code <= CharCodes3.NINE;
@@ -10271,18 +10257,18 @@ function isEntityInAttributeInvalidEnd2(code) {
   return code === CharCodes3.EQUALS || isAsciiAlphaNumeric2(code);
 }
 var EntityDecoderState2;
-(function(EntityDecoderState3) {
-  EntityDecoderState3[EntityDecoderState3["EntityStart"] = 0] = "EntityStart";
-  EntityDecoderState3[EntityDecoderState3["NumericStart"] = 1] = "NumericStart";
-  EntityDecoderState3[EntityDecoderState3["NumericDecimal"] = 2] = "NumericDecimal";
-  EntityDecoderState3[EntityDecoderState3["NumericHex"] = 3] = "NumericHex";
-  EntityDecoderState3[EntityDecoderState3["NamedEntity"] = 4] = "NamedEntity";
+(function(EntityDecoderState) {
+  EntityDecoderState[EntityDecoderState["EntityStart"] = 0] = "EntityStart";
+  EntityDecoderState[EntityDecoderState["NumericStart"] = 1] = "NumericStart";
+  EntityDecoderState[EntityDecoderState["NumericDecimal"] = 2] = "NumericDecimal";
+  EntityDecoderState[EntityDecoderState["NumericHex"] = 3] = "NumericHex";
+  EntityDecoderState[EntityDecoderState["NamedEntity"] = 4] = "NamedEntity";
 })(EntityDecoderState2 || (EntityDecoderState2 = {}));
 var DecodingMode2;
-(function(DecodingMode3) {
-  DecodingMode3[DecodingMode3["Legacy"] = 0] = "Legacy";
-  DecodingMode3[DecodingMode3["Strict"] = 1] = "Strict";
-  DecodingMode3[DecodingMode3["Attribute"] = 2] = "Attribute";
+(function(DecodingMode) {
+  DecodingMode[DecodingMode["Legacy"] = 0] = "Legacy";
+  DecodingMode[DecodingMode["Strict"] = 1] = "Strict";
+  DecodingMode[DecodingMode["Attribute"] = 2] = "Attribute";
 })(DecodingMode2 || (DecodingMode2 = {}));
 
 class EntityDecoder2 {
@@ -10342,9 +10328,9 @@ class EntityDecoder2 {
     this.state = EntityDecoderState2.NumericDecimal;
     return this.stateNumericDecimal(input, offset);
   }
-  addToNumericResult(input, start, end2, base) {
-    if (start !== end2) {
-      const digitCount = end2 - start;
+  addToNumericResult(input, start, end, base) {
+    if (start !== end) {
+      const digitCount = end - start;
       this.result = this.result * Math.pow(base, digitCount) + Number.parseInt(input.substr(start, digitCount), base);
       this.consumed += digitCount;
     }
@@ -10378,9 +10364,9 @@ class EntityDecoder2 {
     return -1;
   }
   emitNumericEntity(lastCp, expectedLength) {
-    var _a4;
+    var _a;
     if (this.consumed <= expectedLength) {
-      (_a4 = this.errors) === null || _a4 === undefined || _a4.absenceOfDigitsInNumericCharacterReference(this.consumed);
+      (_a = this.errors) === null || _a === undefined || _a.absenceOfDigitsInNumericCharacterReference(this.consumed);
       return 0;
     }
     if (lastCp === CharCodes3.SEMI) {
@@ -10423,11 +10409,11 @@ class EntityDecoder2 {
     return -1;
   }
   emitNotTerminatedNamedEntity() {
-    var _a4;
+    var _a;
     const { result, decodeTree } = this;
     const valueLength = (decodeTree[result] & BinTrieFlags2.VALUE_LENGTH) >> 14;
     this.emitNamedEntityData(result, valueLength, this.consumed);
-    (_a4 = this.errors) === null || _a4 === undefined || _a4.missingSemicolonAfterCharacterReference();
+    (_a = this.errors) === null || _a === undefined || _a.missingSemicolonAfterCharacterReference();
     return this.consumed;
   }
   emitNamedEntityData(result, valueLength, consumed) {
@@ -10439,7 +10425,7 @@ class EntityDecoder2 {
     return consumed;
   }
   end() {
-    var _a4;
+    var _a;
     switch (this.state) {
       case EntityDecoderState2.NamedEntity: {
         return this.result !== 0 && (this.decodeMode !== DecodingMode2.Attribute || this.result === this.treeIndex) ? this.emitNotTerminatedNamedEntity() : 0;
@@ -10451,7 +10437,7 @@ class EntityDecoder2 {
         return this.emitNumericEntity(0, 3);
       }
       case EntityDecoderState2.NumericStart: {
-        (_a4 = this.errors) === null || _a4 === undefined || _a4.absenceOfDigitsInNumericCharacterReference(this.consumed);
+        (_a = this.errors) === null || _a === undefined || _a.absenceOfDigitsInNumericCharacterReference(this.consumed);
         return 0;
       }
       case EntityDecoderState2.EntityStart: {
@@ -10487,296 +10473,284 @@ function determineBranch2(decodeTree, current, nodeIndex, char) {
 }
 
 // node_modules/parse5/dist/common/html.js
-var exports_html = {};
-__export(exports_html, {
-  ATTRS: () => ATTRS,
-  DOCUMENT_MODE: () => DOCUMENT_MODE,
-  NS: () => NS,
-  NUMBERED_HEADERS: () => NUMBERED_HEADERS,
-  SPECIAL_ELEMENTS: () => SPECIAL_ELEMENTS,
-  TAG_ID: () => TAG_ID,
-  TAG_NAMES: () => TAG_NAMES,
-  getTagID: () => getTagID,
-  hasUnescapedText: () => hasUnescapedText
-});
 var NS;
-(function(NS2) {
-  NS2["HTML"] = "http://www.w3.org/1999/xhtml";
-  NS2["MATHML"] = "http://www.w3.org/1998/Math/MathML";
-  NS2["SVG"] = "http://www.w3.org/2000/svg";
-  NS2["XLINK"] = "http://www.w3.org/1999/xlink";
-  NS2["XML"] = "http://www.w3.org/XML/1998/namespace";
-  NS2["XMLNS"] = "http://www.w3.org/2000/xmlns/";
+(function(NS) {
+  NS["HTML"] = "http://www.w3.org/1999/xhtml";
+  NS["MATHML"] = "http://www.w3.org/1998/Math/MathML";
+  NS["SVG"] = "http://www.w3.org/2000/svg";
+  NS["XLINK"] = "http://www.w3.org/1999/xlink";
+  NS["XML"] = "http://www.w3.org/XML/1998/namespace";
+  NS["XMLNS"] = "http://www.w3.org/2000/xmlns/";
 })(NS || (NS = {}));
 var ATTRS;
-(function(ATTRS2) {
-  ATTRS2["TYPE"] = "type";
-  ATTRS2["ACTION"] = "action";
-  ATTRS2["ENCODING"] = "encoding";
-  ATTRS2["PROMPT"] = "prompt";
-  ATTRS2["NAME"] = "name";
-  ATTRS2["COLOR"] = "color";
-  ATTRS2["FACE"] = "face";
-  ATTRS2["SIZE"] = "size";
+(function(ATTRS) {
+  ATTRS["TYPE"] = "type";
+  ATTRS["ACTION"] = "action";
+  ATTRS["ENCODING"] = "encoding";
+  ATTRS["PROMPT"] = "prompt";
+  ATTRS["NAME"] = "name";
+  ATTRS["COLOR"] = "color";
+  ATTRS["FACE"] = "face";
+  ATTRS["SIZE"] = "size";
 })(ATTRS || (ATTRS = {}));
 var DOCUMENT_MODE;
-(function(DOCUMENT_MODE2) {
-  DOCUMENT_MODE2["NO_QUIRKS"] = "no-quirks";
-  DOCUMENT_MODE2["QUIRKS"] = "quirks";
-  DOCUMENT_MODE2["LIMITED_QUIRKS"] = "limited-quirks";
+(function(DOCUMENT_MODE) {
+  DOCUMENT_MODE["NO_QUIRKS"] = "no-quirks";
+  DOCUMENT_MODE["QUIRKS"] = "quirks";
+  DOCUMENT_MODE["LIMITED_QUIRKS"] = "limited-quirks";
 })(DOCUMENT_MODE || (DOCUMENT_MODE = {}));
 var TAG_NAMES;
-(function(TAG_NAMES2) {
-  TAG_NAMES2["A"] = "a";
-  TAG_NAMES2["ADDRESS"] = "address";
-  TAG_NAMES2["ANNOTATION_XML"] = "annotation-xml";
-  TAG_NAMES2["APPLET"] = "applet";
-  TAG_NAMES2["AREA"] = "area";
-  TAG_NAMES2["ARTICLE"] = "article";
-  TAG_NAMES2["ASIDE"] = "aside";
-  TAG_NAMES2["B"] = "b";
-  TAG_NAMES2["BASE"] = "base";
-  TAG_NAMES2["BASEFONT"] = "basefont";
-  TAG_NAMES2["BGSOUND"] = "bgsound";
-  TAG_NAMES2["BIG"] = "big";
-  TAG_NAMES2["BLOCKQUOTE"] = "blockquote";
-  TAG_NAMES2["BODY"] = "body";
-  TAG_NAMES2["BR"] = "br";
-  TAG_NAMES2["BUTTON"] = "button";
-  TAG_NAMES2["CAPTION"] = "caption";
-  TAG_NAMES2["CENTER"] = "center";
-  TAG_NAMES2["CODE"] = "code";
-  TAG_NAMES2["COL"] = "col";
-  TAG_NAMES2["COLGROUP"] = "colgroup";
-  TAG_NAMES2["DD"] = "dd";
-  TAG_NAMES2["DESC"] = "desc";
-  TAG_NAMES2["DETAILS"] = "details";
-  TAG_NAMES2["DIALOG"] = "dialog";
-  TAG_NAMES2["DIR"] = "dir";
-  TAG_NAMES2["DIV"] = "div";
-  TAG_NAMES2["DL"] = "dl";
-  TAG_NAMES2["DT"] = "dt";
-  TAG_NAMES2["EM"] = "em";
-  TAG_NAMES2["EMBED"] = "embed";
-  TAG_NAMES2["FIELDSET"] = "fieldset";
-  TAG_NAMES2["FIGCAPTION"] = "figcaption";
-  TAG_NAMES2["FIGURE"] = "figure";
-  TAG_NAMES2["FONT"] = "font";
-  TAG_NAMES2["FOOTER"] = "footer";
-  TAG_NAMES2["FOREIGN_OBJECT"] = "foreignObject";
-  TAG_NAMES2["FORM"] = "form";
-  TAG_NAMES2["FRAME"] = "frame";
-  TAG_NAMES2["FRAMESET"] = "frameset";
-  TAG_NAMES2["H1"] = "h1";
-  TAG_NAMES2["H2"] = "h2";
-  TAG_NAMES2["H3"] = "h3";
-  TAG_NAMES2["H4"] = "h4";
-  TAG_NAMES2["H5"] = "h5";
-  TAG_NAMES2["H6"] = "h6";
-  TAG_NAMES2["HEAD"] = "head";
-  TAG_NAMES2["HEADER"] = "header";
-  TAG_NAMES2["HGROUP"] = "hgroup";
-  TAG_NAMES2["HR"] = "hr";
-  TAG_NAMES2["HTML"] = "html";
-  TAG_NAMES2["I"] = "i";
-  TAG_NAMES2["IMG"] = "img";
-  TAG_NAMES2["IMAGE"] = "image";
-  TAG_NAMES2["INPUT"] = "input";
-  TAG_NAMES2["IFRAME"] = "iframe";
-  TAG_NAMES2["KEYGEN"] = "keygen";
-  TAG_NAMES2["LABEL"] = "label";
-  TAG_NAMES2["LI"] = "li";
-  TAG_NAMES2["LINK"] = "link";
-  TAG_NAMES2["LISTING"] = "listing";
-  TAG_NAMES2["MAIN"] = "main";
-  TAG_NAMES2["MALIGNMARK"] = "malignmark";
-  TAG_NAMES2["MARQUEE"] = "marquee";
-  TAG_NAMES2["MATH"] = "math";
-  TAG_NAMES2["MENU"] = "menu";
-  TAG_NAMES2["META"] = "meta";
-  TAG_NAMES2["MGLYPH"] = "mglyph";
-  TAG_NAMES2["MI"] = "mi";
-  TAG_NAMES2["MO"] = "mo";
-  TAG_NAMES2["MN"] = "mn";
-  TAG_NAMES2["MS"] = "ms";
-  TAG_NAMES2["MTEXT"] = "mtext";
-  TAG_NAMES2["NAV"] = "nav";
-  TAG_NAMES2["NOBR"] = "nobr";
-  TAG_NAMES2["NOFRAMES"] = "noframes";
-  TAG_NAMES2["NOEMBED"] = "noembed";
-  TAG_NAMES2["NOSCRIPT"] = "noscript";
-  TAG_NAMES2["OBJECT"] = "object";
-  TAG_NAMES2["OL"] = "ol";
-  TAG_NAMES2["OPTGROUP"] = "optgroup";
-  TAG_NAMES2["OPTION"] = "option";
-  TAG_NAMES2["P"] = "p";
-  TAG_NAMES2["PARAM"] = "param";
-  TAG_NAMES2["PLAINTEXT"] = "plaintext";
-  TAG_NAMES2["PRE"] = "pre";
-  TAG_NAMES2["RB"] = "rb";
-  TAG_NAMES2["RP"] = "rp";
-  TAG_NAMES2["RT"] = "rt";
-  TAG_NAMES2["RTC"] = "rtc";
-  TAG_NAMES2["RUBY"] = "ruby";
-  TAG_NAMES2["S"] = "s";
-  TAG_NAMES2["SCRIPT"] = "script";
-  TAG_NAMES2["SEARCH"] = "search";
-  TAG_NAMES2["SECTION"] = "section";
-  TAG_NAMES2["SELECT"] = "select";
-  TAG_NAMES2["SOURCE"] = "source";
-  TAG_NAMES2["SMALL"] = "small";
-  TAG_NAMES2["SPAN"] = "span";
-  TAG_NAMES2["STRIKE"] = "strike";
-  TAG_NAMES2["STRONG"] = "strong";
-  TAG_NAMES2["STYLE"] = "style";
-  TAG_NAMES2["SUB"] = "sub";
-  TAG_NAMES2["SUMMARY"] = "summary";
-  TAG_NAMES2["SUP"] = "sup";
-  TAG_NAMES2["TABLE"] = "table";
-  TAG_NAMES2["TBODY"] = "tbody";
-  TAG_NAMES2["TEMPLATE"] = "template";
-  TAG_NAMES2["TEXTAREA"] = "textarea";
-  TAG_NAMES2["TFOOT"] = "tfoot";
-  TAG_NAMES2["TD"] = "td";
-  TAG_NAMES2["TH"] = "th";
-  TAG_NAMES2["THEAD"] = "thead";
-  TAG_NAMES2["TITLE"] = "title";
-  TAG_NAMES2["TR"] = "tr";
-  TAG_NAMES2["TRACK"] = "track";
-  TAG_NAMES2["TT"] = "tt";
-  TAG_NAMES2["U"] = "u";
-  TAG_NAMES2["UL"] = "ul";
-  TAG_NAMES2["SVG"] = "svg";
-  TAG_NAMES2["VAR"] = "var";
-  TAG_NAMES2["WBR"] = "wbr";
-  TAG_NAMES2["XMP"] = "xmp";
+(function(TAG_NAMES) {
+  TAG_NAMES["A"] = "a";
+  TAG_NAMES["ADDRESS"] = "address";
+  TAG_NAMES["ANNOTATION_XML"] = "annotation-xml";
+  TAG_NAMES["APPLET"] = "applet";
+  TAG_NAMES["AREA"] = "area";
+  TAG_NAMES["ARTICLE"] = "article";
+  TAG_NAMES["ASIDE"] = "aside";
+  TAG_NAMES["B"] = "b";
+  TAG_NAMES["BASE"] = "base";
+  TAG_NAMES["BASEFONT"] = "basefont";
+  TAG_NAMES["BGSOUND"] = "bgsound";
+  TAG_NAMES["BIG"] = "big";
+  TAG_NAMES["BLOCKQUOTE"] = "blockquote";
+  TAG_NAMES["BODY"] = "body";
+  TAG_NAMES["BR"] = "br";
+  TAG_NAMES["BUTTON"] = "button";
+  TAG_NAMES["CAPTION"] = "caption";
+  TAG_NAMES["CENTER"] = "center";
+  TAG_NAMES["CODE"] = "code";
+  TAG_NAMES["COL"] = "col";
+  TAG_NAMES["COLGROUP"] = "colgroup";
+  TAG_NAMES["DD"] = "dd";
+  TAG_NAMES["DESC"] = "desc";
+  TAG_NAMES["DETAILS"] = "details";
+  TAG_NAMES["DIALOG"] = "dialog";
+  TAG_NAMES["DIR"] = "dir";
+  TAG_NAMES["DIV"] = "div";
+  TAG_NAMES["DL"] = "dl";
+  TAG_NAMES["DT"] = "dt";
+  TAG_NAMES["EM"] = "em";
+  TAG_NAMES["EMBED"] = "embed";
+  TAG_NAMES["FIELDSET"] = "fieldset";
+  TAG_NAMES["FIGCAPTION"] = "figcaption";
+  TAG_NAMES["FIGURE"] = "figure";
+  TAG_NAMES["FONT"] = "font";
+  TAG_NAMES["FOOTER"] = "footer";
+  TAG_NAMES["FOREIGN_OBJECT"] = "foreignObject";
+  TAG_NAMES["FORM"] = "form";
+  TAG_NAMES["FRAME"] = "frame";
+  TAG_NAMES["FRAMESET"] = "frameset";
+  TAG_NAMES["H1"] = "h1";
+  TAG_NAMES["H2"] = "h2";
+  TAG_NAMES["H3"] = "h3";
+  TAG_NAMES["H4"] = "h4";
+  TAG_NAMES["H5"] = "h5";
+  TAG_NAMES["H6"] = "h6";
+  TAG_NAMES["HEAD"] = "head";
+  TAG_NAMES["HEADER"] = "header";
+  TAG_NAMES["HGROUP"] = "hgroup";
+  TAG_NAMES["HR"] = "hr";
+  TAG_NAMES["HTML"] = "html";
+  TAG_NAMES["I"] = "i";
+  TAG_NAMES["IMG"] = "img";
+  TAG_NAMES["IMAGE"] = "image";
+  TAG_NAMES["INPUT"] = "input";
+  TAG_NAMES["IFRAME"] = "iframe";
+  TAG_NAMES["KEYGEN"] = "keygen";
+  TAG_NAMES["LABEL"] = "label";
+  TAG_NAMES["LI"] = "li";
+  TAG_NAMES["LINK"] = "link";
+  TAG_NAMES["LISTING"] = "listing";
+  TAG_NAMES["MAIN"] = "main";
+  TAG_NAMES["MALIGNMARK"] = "malignmark";
+  TAG_NAMES["MARQUEE"] = "marquee";
+  TAG_NAMES["MATH"] = "math";
+  TAG_NAMES["MENU"] = "menu";
+  TAG_NAMES["META"] = "meta";
+  TAG_NAMES["MGLYPH"] = "mglyph";
+  TAG_NAMES["MI"] = "mi";
+  TAG_NAMES["MO"] = "mo";
+  TAG_NAMES["MN"] = "mn";
+  TAG_NAMES["MS"] = "ms";
+  TAG_NAMES["MTEXT"] = "mtext";
+  TAG_NAMES["NAV"] = "nav";
+  TAG_NAMES["NOBR"] = "nobr";
+  TAG_NAMES["NOFRAMES"] = "noframes";
+  TAG_NAMES["NOEMBED"] = "noembed";
+  TAG_NAMES["NOSCRIPT"] = "noscript";
+  TAG_NAMES["OBJECT"] = "object";
+  TAG_NAMES["OL"] = "ol";
+  TAG_NAMES["OPTGROUP"] = "optgroup";
+  TAG_NAMES["OPTION"] = "option";
+  TAG_NAMES["P"] = "p";
+  TAG_NAMES["PARAM"] = "param";
+  TAG_NAMES["PLAINTEXT"] = "plaintext";
+  TAG_NAMES["PRE"] = "pre";
+  TAG_NAMES["RB"] = "rb";
+  TAG_NAMES["RP"] = "rp";
+  TAG_NAMES["RT"] = "rt";
+  TAG_NAMES["RTC"] = "rtc";
+  TAG_NAMES["RUBY"] = "ruby";
+  TAG_NAMES["S"] = "s";
+  TAG_NAMES["SCRIPT"] = "script";
+  TAG_NAMES["SEARCH"] = "search";
+  TAG_NAMES["SECTION"] = "section";
+  TAG_NAMES["SELECT"] = "select";
+  TAG_NAMES["SOURCE"] = "source";
+  TAG_NAMES["SMALL"] = "small";
+  TAG_NAMES["SPAN"] = "span";
+  TAG_NAMES["STRIKE"] = "strike";
+  TAG_NAMES["STRONG"] = "strong";
+  TAG_NAMES["STYLE"] = "style";
+  TAG_NAMES["SUB"] = "sub";
+  TAG_NAMES["SUMMARY"] = "summary";
+  TAG_NAMES["SUP"] = "sup";
+  TAG_NAMES["TABLE"] = "table";
+  TAG_NAMES["TBODY"] = "tbody";
+  TAG_NAMES["TEMPLATE"] = "template";
+  TAG_NAMES["TEXTAREA"] = "textarea";
+  TAG_NAMES["TFOOT"] = "tfoot";
+  TAG_NAMES["TD"] = "td";
+  TAG_NAMES["TH"] = "th";
+  TAG_NAMES["THEAD"] = "thead";
+  TAG_NAMES["TITLE"] = "title";
+  TAG_NAMES["TR"] = "tr";
+  TAG_NAMES["TRACK"] = "track";
+  TAG_NAMES["TT"] = "tt";
+  TAG_NAMES["U"] = "u";
+  TAG_NAMES["UL"] = "ul";
+  TAG_NAMES["SVG"] = "svg";
+  TAG_NAMES["VAR"] = "var";
+  TAG_NAMES["WBR"] = "wbr";
+  TAG_NAMES["XMP"] = "xmp";
 })(TAG_NAMES || (TAG_NAMES = {}));
 var TAG_ID;
-(function(TAG_ID2) {
-  TAG_ID2[TAG_ID2["UNKNOWN"] = 0] = "UNKNOWN";
-  TAG_ID2[TAG_ID2["A"] = 1] = "A";
-  TAG_ID2[TAG_ID2["ADDRESS"] = 2] = "ADDRESS";
-  TAG_ID2[TAG_ID2["ANNOTATION_XML"] = 3] = "ANNOTATION_XML";
-  TAG_ID2[TAG_ID2["APPLET"] = 4] = "APPLET";
-  TAG_ID2[TAG_ID2["AREA"] = 5] = "AREA";
-  TAG_ID2[TAG_ID2["ARTICLE"] = 6] = "ARTICLE";
-  TAG_ID2[TAG_ID2["ASIDE"] = 7] = "ASIDE";
-  TAG_ID2[TAG_ID2["B"] = 8] = "B";
-  TAG_ID2[TAG_ID2["BASE"] = 9] = "BASE";
-  TAG_ID2[TAG_ID2["BASEFONT"] = 10] = "BASEFONT";
-  TAG_ID2[TAG_ID2["BGSOUND"] = 11] = "BGSOUND";
-  TAG_ID2[TAG_ID2["BIG"] = 12] = "BIG";
-  TAG_ID2[TAG_ID2["BLOCKQUOTE"] = 13] = "BLOCKQUOTE";
-  TAG_ID2[TAG_ID2["BODY"] = 14] = "BODY";
-  TAG_ID2[TAG_ID2["BR"] = 15] = "BR";
-  TAG_ID2[TAG_ID2["BUTTON"] = 16] = "BUTTON";
-  TAG_ID2[TAG_ID2["CAPTION"] = 17] = "CAPTION";
-  TAG_ID2[TAG_ID2["CENTER"] = 18] = "CENTER";
-  TAG_ID2[TAG_ID2["CODE"] = 19] = "CODE";
-  TAG_ID2[TAG_ID2["COL"] = 20] = "COL";
-  TAG_ID2[TAG_ID2["COLGROUP"] = 21] = "COLGROUP";
-  TAG_ID2[TAG_ID2["DD"] = 22] = "DD";
-  TAG_ID2[TAG_ID2["DESC"] = 23] = "DESC";
-  TAG_ID2[TAG_ID2["DETAILS"] = 24] = "DETAILS";
-  TAG_ID2[TAG_ID2["DIALOG"] = 25] = "DIALOG";
-  TAG_ID2[TAG_ID2["DIR"] = 26] = "DIR";
-  TAG_ID2[TAG_ID2["DIV"] = 27] = "DIV";
-  TAG_ID2[TAG_ID2["DL"] = 28] = "DL";
-  TAG_ID2[TAG_ID2["DT"] = 29] = "DT";
-  TAG_ID2[TAG_ID2["EM"] = 30] = "EM";
-  TAG_ID2[TAG_ID2["EMBED"] = 31] = "EMBED";
-  TAG_ID2[TAG_ID2["FIELDSET"] = 32] = "FIELDSET";
-  TAG_ID2[TAG_ID2["FIGCAPTION"] = 33] = "FIGCAPTION";
-  TAG_ID2[TAG_ID2["FIGURE"] = 34] = "FIGURE";
-  TAG_ID2[TAG_ID2["FONT"] = 35] = "FONT";
-  TAG_ID2[TAG_ID2["FOOTER"] = 36] = "FOOTER";
-  TAG_ID2[TAG_ID2["FOREIGN_OBJECT"] = 37] = "FOREIGN_OBJECT";
-  TAG_ID2[TAG_ID2["FORM"] = 38] = "FORM";
-  TAG_ID2[TAG_ID2["FRAME"] = 39] = "FRAME";
-  TAG_ID2[TAG_ID2["FRAMESET"] = 40] = "FRAMESET";
-  TAG_ID2[TAG_ID2["H1"] = 41] = "H1";
-  TAG_ID2[TAG_ID2["H2"] = 42] = "H2";
-  TAG_ID2[TAG_ID2["H3"] = 43] = "H3";
-  TAG_ID2[TAG_ID2["H4"] = 44] = "H4";
-  TAG_ID2[TAG_ID2["H5"] = 45] = "H5";
-  TAG_ID2[TAG_ID2["H6"] = 46] = "H6";
-  TAG_ID2[TAG_ID2["HEAD"] = 47] = "HEAD";
-  TAG_ID2[TAG_ID2["HEADER"] = 48] = "HEADER";
-  TAG_ID2[TAG_ID2["HGROUP"] = 49] = "HGROUP";
-  TAG_ID2[TAG_ID2["HR"] = 50] = "HR";
-  TAG_ID2[TAG_ID2["HTML"] = 51] = "HTML";
-  TAG_ID2[TAG_ID2["I"] = 52] = "I";
-  TAG_ID2[TAG_ID2["IMG"] = 53] = "IMG";
-  TAG_ID2[TAG_ID2["IMAGE"] = 54] = "IMAGE";
-  TAG_ID2[TAG_ID2["INPUT"] = 55] = "INPUT";
-  TAG_ID2[TAG_ID2["IFRAME"] = 56] = "IFRAME";
-  TAG_ID2[TAG_ID2["KEYGEN"] = 57] = "KEYGEN";
-  TAG_ID2[TAG_ID2["LABEL"] = 58] = "LABEL";
-  TAG_ID2[TAG_ID2["LI"] = 59] = "LI";
-  TAG_ID2[TAG_ID2["LINK"] = 60] = "LINK";
-  TAG_ID2[TAG_ID2["LISTING"] = 61] = "LISTING";
-  TAG_ID2[TAG_ID2["MAIN"] = 62] = "MAIN";
-  TAG_ID2[TAG_ID2["MALIGNMARK"] = 63] = "MALIGNMARK";
-  TAG_ID2[TAG_ID2["MARQUEE"] = 64] = "MARQUEE";
-  TAG_ID2[TAG_ID2["MATH"] = 65] = "MATH";
-  TAG_ID2[TAG_ID2["MENU"] = 66] = "MENU";
-  TAG_ID2[TAG_ID2["META"] = 67] = "META";
-  TAG_ID2[TAG_ID2["MGLYPH"] = 68] = "MGLYPH";
-  TAG_ID2[TAG_ID2["MI"] = 69] = "MI";
-  TAG_ID2[TAG_ID2["MO"] = 70] = "MO";
-  TAG_ID2[TAG_ID2["MN"] = 71] = "MN";
-  TAG_ID2[TAG_ID2["MS"] = 72] = "MS";
-  TAG_ID2[TAG_ID2["MTEXT"] = 73] = "MTEXT";
-  TAG_ID2[TAG_ID2["NAV"] = 74] = "NAV";
-  TAG_ID2[TAG_ID2["NOBR"] = 75] = "NOBR";
-  TAG_ID2[TAG_ID2["NOFRAMES"] = 76] = "NOFRAMES";
-  TAG_ID2[TAG_ID2["NOEMBED"] = 77] = "NOEMBED";
-  TAG_ID2[TAG_ID2["NOSCRIPT"] = 78] = "NOSCRIPT";
-  TAG_ID2[TAG_ID2["OBJECT"] = 79] = "OBJECT";
-  TAG_ID2[TAG_ID2["OL"] = 80] = "OL";
-  TAG_ID2[TAG_ID2["OPTGROUP"] = 81] = "OPTGROUP";
-  TAG_ID2[TAG_ID2["OPTION"] = 82] = "OPTION";
-  TAG_ID2[TAG_ID2["P"] = 83] = "P";
-  TAG_ID2[TAG_ID2["PARAM"] = 84] = "PARAM";
-  TAG_ID2[TAG_ID2["PLAINTEXT"] = 85] = "PLAINTEXT";
-  TAG_ID2[TAG_ID2["PRE"] = 86] = "PRE";
-  TAG_ID2[TAG_ID2["RB"] = 87] = "RB";
-  TAG_ID2[TAG_ID2["RP"] = 88] = "RP";
-  TAG_ID2[TAG_ID2["RT"] = 89] = "RT";
-  TAG_ID2[TAG_ID2["RTC"] = 90] = "RTC";
-  TAG_ID2[TAG_ID2["RUBY"] = 91] = "RUBY";
-  TAG_ID2[TAG_ID2["S"] = 92] = "S";
-  TAG_ID2[TAG_ID2["SCRIPT"] = 93] = "SCRIPT";
-  TAG_ID2[TAG_ID2["SEARCH"] = 94] = "SEARCH";
-  TAG_ID2[TAG_ID2["SECTION"] = 95] = "SECTION";
-  TAG_ID2[TAG_ID2["SELECT"] = 96] = "SELECT";
-  TAG_ID2[TAG_ID2["SOURCE"] = 97] = "SOURCE";
-  TAG_ID2[TAG_ID2["SMALL"] = 98] = "SMALL";
-  TAG_ID2[TAG_ID2["SPAN"] = 99] = "SPAN";
-  TAG_ID2[TAG_ID2["STRIKE"] = 100] = "STRIKE";
-  TAG_ID2[TAG_ID2["STRONG"] = 101] = "STRONG";
-  TAG_ID2[TAG_ID2["STYLE"] = 102] = "STYLE";
-  TAG_ID2[TAG_ID2["SUB"] = 103] = "SUB";
-  TAG_ID2[TAG_ID2["SUMMARY"] = 104] = "SUMMARY";
-  TAG_ID2[TAG_ID2["SUP"] = 105] = "SUP";
-  TAG_ID2[TAG_ID2["TABLE"] = 106] = "TABLE";
-  TAG_ID2[TAG_ID2["TBODY"] = 107] = "TBODY";
-  TAG_ID2[TAG_ID2["TEMPLATE"] = 108] = "TEMPLATE";
-  TAG_ID2[TAG_ID2["TEXTAREA"] = 109] = "TEXTAREA";
-  TAG_ID2[TAG_ID2["TFOOT"] = 110] = "TFOOT";
-  TAG_ID2[TAG_ID2["TD"] = 111] = "TD";
-  TAG_ID2[TAG_ID2["TH"] = 112] = "TH";
-  TAG_ID2[TAG_ID2["THEAD"] = 113] = "THEAD";
-  TAG_ID2[TAG_ID2["TITLE"] = 114] = "TITLE";
-  TAG_ID2[TAG_ID2["TR"] = 115] = "TR";
-  TAG_ID2[TAG_ID2["TRACK"] = 116] = "TRACK";
-  TAG_ID2[TAG_ID2["TT"] = 117] = "TT";
-  TAG_ID2[TAG_ID2["U"] = 118] = "U";
-  TAG_ID2[TAG_ID2["UL"] = 119] = "UL";
-  TAG_ID2[TAG_ID2["SVG"] = 120] = "SVG";
-  TAG_ID2[TAG_ID2["VAR"] = 121] = "VAR";
-  TAG_ID2[TAG_ID2["WBR"] = 122] = "WBR";
-  TAG_ID2[TAG_ID2["XMP"] = 123] = "XMP";
+(function(TAG_ID) {
+  TAG_ID[TAG_ID["UNKNOWN"] = 0] = "UNKNOWN";
+  TAG_ID[TAG_ID["A"] = 1] = "A";
+  TAG_ID[TAG_ID["ADDRESS"] = 2] = "ADDRESS";
+  TAG_ID[TAG_ID["ANNOTATION_XML"] = 3] = "ANNOTATION_XML";
+  TAG_ID[TAG_ID["APPLET"] = 4] = "APPLET";
+  TAG_ID[TAG_ID["AREA"] = 5] = "AREA";
+  TAG_ID[TAG_ID["ARTICLE"] = 6] = "ARTICLE";
+  TAG_ID[TAG_ID["ASIDE"] = 7] = "ASIDE";
+  TAG_ID[TAG_ID["B"] = 8] = "B";
+  TAG_ID[TAG_ID["BASE"] = 9] = "BASE";
+  TAG_ID[TAG_ID["BASEFONT"] = 10] = "BASEFONT";
+  TAG_ID[TAG_ID["BGSOUND"] = 11] = "BGSOUND";
+  TAG_ID[TAG_ID["BIG"] = 12] = "BIG";
+  TAG_ID[TAG_ID["BLOCKQUOTE"] = 13] = "BLOCKQUOTE";
+  TAG_ID[TAG_ID["BODY"] = 14] = "BODY";
+  TAG_ID[TAG_ID["BR"] = 15] = "BR";
+  TAG_ID[TAG_ID["BUTTON"] = 16] = "BUTTON";
+  TAG_ID[TAG_ID["CAPTION"] = 17] = "CAPTION";
+  TAG_ID[TAG_ID["CENTER"] = 18] = "CENTER";
+  TAG_ID[TAG_ID["CODE"] = 19] = "CODE";
+  TAG_ID[TAG_ID["COL"] = 20] = "COL";
+  TAG_ID[TAG_ID["COLGROUP"] = 21] = "COLGROUP";
+  TAG_ID[TAG_ID["DD"] = 22] = "DD";
+  TAG_ID[TAG_ID["DESC"] = 23] = "DESC";
+  TAG_ID[TAG_ID["DETAILS"] = 24] = "DETAILS";
+  TAG_ID[TAG_ID["DIALOG"] = 25] = "DIALOG";
+  TAG_ID[TAG_ID["DIR"] = 26] = "DIR";
+  TAG_ID[TAG_ID["DIV"] = 27] = "DIV";
+  TAG_ID[TAG_ID["DL"] = 28] = "DL";
+  TAG_ID[TAG_ID["DT"] = 29] = "DT";
+  TAG_ID[TAG_ID["EM"] = 30] = "EM";
+  TAG_ID[TAG_ID["EMBED"] = 31] = "EMBED";
+  TAG_ID[TAG_ID["FIELDSET"] = 32] = "FIELDSET";
+  TAG_ID[TAG_ID["FIGCAPTION"] = 33] = "FIGCAPTION";
+  TAG_ID[TAG_ID["FIGURE"] = 34] = "FIGURE";
+  TAG_ID[TAG_ID["FONT"] = 35] = "FONT";
+  TAG_ID[TAG_ID["FOOTER"] = 36] = "FOOTER";
+  TAG_ID[TAG_ID["FOREIGN_OBJECT"] = 37] = "FOREIGN_OBJECT";
+  TAG_ID[TAG_ID["FORM"] = 38] = "FORM";
+  TAG_ID[TAG_ID["FRAME"] = 39] = "FRAME";
+  TAG_ID[TAG_ID["FRAMESET"] = 40] = "FRAMESET";
+  TAG_ID[TAG_ID["H1"] = 41] = "H1";
+  TAG_ID[TAG_ID["H2"] = 42] = "H2";
+  TAG_ID[TAG_ID["H3"] = 43] = "H3";
+  TAG_ID[TAG_ID["H4"] = 44] = "H4";
+  TAG_ID[TAG_ID["H5"] = 45] = "H5";
+  TAG_ID[TAG_ID["H6"] = 46] = "H6";
+  TAG_ID[TAG_ID["HEAD"] = 47] = "HEAD";
+  TAG_ID[TAG_ID["HEADER"] = 48] = "HEADER";
+  TAG_ID[TAG_ID["HGROUP"] = 49] = "HGROUP";
+  TAG_ID[TAG_ID["HR"] = 50] = "HR";
+  TAG_ID[TAG_ID["HTML"] = 51] = "HTML";
+  TAG_ID[TAG_ID["I"] = 52] = "I";
+  TAG_ID[TAG_ID["IMG"] = 53] = "IMG";
+  TAG_ID[TAG_ID["IMAGE"] = 54] = "IMAGE";
+  TAG_ID[TAG_ID["INPUT"] = 55] = "INPUT";
+  TAG_ID[TAG_ID["IFRAME"] = 56] = "IFRAME";
+  TAG_ID[TAG_ID["KEYGEN"] = 57] = "KEYGEN";
+  TAG_ID[TAG_ID["LABEL"] = 58] = "LABEL";
+  TAG_ID[TAG_ID["LI"] = 59] = "LI";
+  TAG_ID[TAG_ID["LINK"] = 60] = "LINK";
+  TAG_ID[TAG_ID["LISTING"] = 61] = "LISTING";
+  TAG_ID[TAG_ID["MAIN"] = 62] = "MAIN";
+  TAG_ID[TAG_ID["MALIGNMARK"] = 63] = "MALIGNMARK";
+  TAG_ID[TAG_ID["MARQUEE"] = 64] = "MARQUEE";
+  TAG_ID[TAG_ID["MATH"] = 65] = "MATH";
+  TAG_ID[TAG_ID["MENU"] = 66] = "MENU";
+  TAG_ID[TAG_ID["META"] = 67] = "META";
+  TAG_ID[TAG_ID["MGLYPH"] = 68] = "MGLYPH";
+  TAG_ID[TAG_ID["MI"] = 69] = "MI";
+  TAG_ID[TAG_ID["MO"] = 70] = "MO";
+  TAG_ID[TAG_ID["MN"] = 71] = "MN";
+  TAG_ID[TAG_ID["MS"] = 72] = "MS";
+  TAG_ID[TAG_ID["MTEXT"] = 73] = "MTEXT";
+  TAG_ID[TAG_ID["NAV"] = 74] = "NAV";
+  TAG_ID[TAG_ID["NOBR"] = 75] = "NOBR";
+  TAG_ID[TAG_ID["NOFRAMES"] = 76] = "NOFRAMES";
+  TAG_ID[TAG_ID["NOEMBED"] = 77] = "NOEMBED";
+  TAG_ID[TAG_ID["NOSCRIPT"] = 78] = "NOSCRIPT";
+  TAG_ID[TAG_ID["OBJECT"] = 79] = "OBJECT";
+  TAG_ID[TAG_ID["OL"] = 80] = "OL";
+  TAG_ID[TAG_ID["OPTGROUP"] = 81] = "OPTGROUP";
+  TAG_ID[TAG_ID["OPTION"] = 82] = "OPTION";
+  TAG_ID[TAG_ID["P"] = 83] = "P";
+  TAG_ID[TAG_ID["PARAM"] = 84] = "PARAM";
+  TAG_ID[TAG_ID["PLAINTEXT"] = 85] = "PLAINTEXT";
+  TAG_ID[TAG_ID["PRE"] = 86] = "PRE";
+  TAG_ID[TAG_ID["RB"] = 87] = "RB";
+  TAG_ID[TAG_ID["RP"] = 88] = "RP";
+  TAG_ID[TAG_ID["RT"] = 89] = "RT";
+  TAG_ID[TAG_ID["RTC"] = 90] = "RTC";
+  TAG_ID[TAG_ID["RUBY"] = 91] = "RUBY";
+  TAG_ID[TAG_ID["S"] = 92] = "S";
+  TAG_ID[TAG_ID["SCRIPT"] = 93] = "SCRIPT";
+  TAG_ID[TAG_ID["SEARCH"] = 94] = "SEARCH";
+  TAG_ID[TAG_ID["SECTION"] = 95] = "SECTION";
+  TAG_ID[TAG_ID["SELECT"] = 96] = "SELECT";
+  TAG_ID[TAG_ID["SOURCE"] = 97] = "SOURCE";
+  TAG_ID[TAG_ID["SMALL"] = 98] = "SMALL";
+  TAG_ID[TAG_ID["SPAN"] = 99] = "SPAN";
+  TAG_ID[TAG_ID["STRIKE"] = 100] = "STRIKE";
+  TAG_ID[TAG_ID["STRONG"] = 101] = "STRONG";
+  TAG_ID[TAG_ID["STYLE"] = 102] = "STYLE";
+  TAG_ID[TAG_ID["SUB"] = 103] = "SUB";
+  TAG_ID[TAG_ID["SUMMARY"] = 104] = "SUMMARY";
+  TAG_ID[TAG_ID["SUP"] = 105] = "SUP";
+  TAG_ID[TAG_ID["TABLE"] = 106] = "TABLE";
+  TAG_ID[TAG_ID["TBODY"] = 107] = "TBODY";
+  TAG_ID[TAG_ID["TEMPLATE"] = 108] = "TEMPLATE";
+  TAG_ID[TAG_ID["TEXTAREA"] = 109] = "TEXTAREA";
+  TAG_ID[TAG_ID["TFOOT"] = 110] = "TFOOT";
+  TAG_ID[TAG_ID["TD"] = 111] = "TD";
+  TAG_ID[TAG_ID["TH"] = 112] = "TH";
+  TAG_ID[TAG_ID["THEAD"] = 113] = "THEAD";
+  TAG_ID[TAG_ID["TITLE"] = 114] = "TITLE";
+  TAG_ID[TAG_ID["TR"] = 115] = "TR";
+  TAG_ID[TAG_ID["TRACK"] = 116] = "TRACK";
+  TAG_ID[TAG_ID["TT"] = 117] = "TT";
+  TAG_ID[TAG_ID["U"] = 118] = "U";
+  TAG_ID[TAG_ID["UL"] = 119] = "UL";
+  TAG_ID[TAG_ID["SVG"] = 120] = "SVG";
+  TAG_ID[TAG_ID["VAR"] = 121] = "VAR";
+  TAG_ID[TAG_ID["WBR"] = 122] = "WBR";
+  TAG_ID[TAG_ID["XMP"] = 123] = "XMP";
 })(TAG_ID || (TAG_ID = {}));
 var TAG_NAME_TO_ID = new Map([
   [TAG_NAMES.A, TAG_ID.A],
@@ -10904,8 +10878,8 @@ var TAG_NAME_TO_ID = new Map([
   [TAG_NAMES.XMP, TAG_ID.XMP]
 ]);
 function getTagID(tagName) {
-  var _a4;
-  return (_a4 = TAG_NAME_TO_ID.get(tagName)) !== null && _a4 !== undefined ? _a4 : TAG_ID.UNKNOWN;
+  var _a;
+  return (_a = TAG_NAME_TO_ID.get(tagName)) !== null && _a !== undefined ? _a : TAG_ID.UNKNOWN;
 }
 var $ = TAG_ID;
 var SPECIAL_ELEMENTS = {
@@ -11014,80 +10988,80 @@ function hasUnescapedText(tn, scriptingEnabled) {
 
 // node_modules/parse5/dist/tokenizer/index.js
 var State2;
-(function(State3) {
-  State3[State3["DATA"] = 0] = "DATA";
-  State3[State3["RCDATA"] = 1] = "RCDATA";
-  State3[State3["RAWTEXT"] = 2] = "RAWTEXT";
-  State3[State3["SCRIPT_DATA"] = 3] = "SCRIPT_DATA";
-  State3[State3["PLAINTEXT"] = 4] = "PLAINTEXT";
-  State3[State3["TAG_OPEN"] = 5] = "TAG_OPEN";
-  State3[State3["END_TAG_OPEN"] = 6] = "END_TAG_OPEN";
-  State3[State3["TAG_NAME"] = 7] = "TAG_NAME";
-  State3[State3["RCDATA_LESS_THAN_SIGN"] = 8] = "RCDATA_LESS_THAN_SIGN";
-  State3[State3["RCDATA_END_TAG_OPEN"] = 9] = "RCDATA_END_TAG_OPEN";
-  State3[State3["RCDATA_END_TAG_NAME"] = 10] = "RCDATA_END_TAG_NAME";
-  State3[State3["RAWTEXT_LESS_THAN_SIGN"] = 11] = "RAWTEXT_LESS_THAN_SIGN";
-  State3[State3["RAWTEXT_END_TAG_OPEN"] = 12] = "RAWTEXT_END_TAG_OPEN";
-  State3[State3["RAWTEXT_END_TAG_NAME"] = 13] = "RAWTEXT_END_TAG_NAME";
-  State3[State3["SCRIPT_DATA_LESS_THAN_SIGN"] = 14] = "SCRIPT_DATA_LESS_THAN_SIGN";
-  State3[State3["SCRIPT_DATA_END_TAG_OPEN"] = 15] = "SCRIPT_DATA_END_TAG_OPEN";
-  State3[State3["SCRIPT_DATA_END_TAG_NAME"] = 16] = "SCRIPT_DATA_END_TAG_NAME";
-  State3[State3["SCRIPT_DATA_ESCAPE_START"] = 17] = "SCRIPT_DATA_ESCAPE_START";
-  State3[State3["SCRIPT_DATA_ESCAPE_START_DASH"] = 18] = "SCRIPT_DATA_ESCAPE_START_DASH";
-  State3[State3["SCRIPT_DATA_ESCAPED"] = 19] = "SCRIPT_DATA_ESCAPED";
-  State3[State3["SCRIPT_DATA_ESCAPED_DASH"] = 20] = "SCRIPT_DATA_ESCAPED_DASH";
-  State3[State3["SCRIPT_DATA_ESCAPED_DASH_DASH"] = 21] = "SCRIPT_DATA_ESCAPED_DASH_DASH";
-  State3[State3["SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN"] = 22] = "SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN";
-  State3[State3["SCRIPT_DATA_ESCAPED_END_TAG_OPEN"] = 23] = "SCRIPT_DATA_ESCAPED_END_TAG_OPEN";
-  State3[State3["SCRIPT_DATA_ESCAPED_END_TAG_NAME"] = 24] = "SCRIPT_DATA_ESCAPED_END_TAG_NAME";
-  State3[State3["SCRIPT_DATA_DOUBLE_ESCAPE_START"] = 25] = "SCRIPT_DATA_DOUBLE_ESCAPE_START";
-  State3[State3["SCRIPT_DATA_DOUBLE_ESCAPED"] = 26] = "SCRIPT_DATA_DOUBLE_ESCAPED";
-  State3[State3["SCRIPT_DATA_DOUBLE_ESCAPED_DASH"] = 27] = "SCRIPT_DATA_DOUBLE_ESCAPED_DASH";
-  State3[State3["SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH"] = 28] = "SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH";
-  State3[State3["SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN"] = 29] = "SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN";
-  State3[State3["SCRIPT_DATA_DOUBLE_ESCAPE_END"] = 30] = "SCRIPT_DATA_DOUBLE_ESCAPE_END";
-  State3[State3["BEFORE_ATTRIBUTE_NAME"] = 31] = "BEFORE_ATTRIBUTE_NAME";
-  State3[State3["ATTRIBUTE_NAME"] = 32] = "ATTRIBUTE_NAME";
-  State3[State3["AFTER_ATTRIBUTE_NAME"] = 33] = "AFTER_ATTRIBUTE_NAME";
-  State3[State3["BEFORE_ATTRIBUTE_VALUE"] = 34] = "BEFORE_ATTRIBUTE_VALUE";
-  State3[State3["ATTRIBUTE_VALUE_DOUBLE_QUOTED"] = 35] = "ATTRIBUTE_VALUE_DOUBLE_QUOTED";
-  State3[State3["ATTRIBUTE_VALUE_SINGLE_QUOTED"] = 36] = "ATTRIBUTE_VALUE_SINGLE_QUOTED";
-  State3[State3["ATTRIBUTE_VALUE_UNQUOTED"] = 37] = "ATTRIBUTE_VALUE_UNQUOTED";
-  State3[State3["AFTER_ATTRIBUTE_VALUE_QUOTED"] = 38] = "AFTER_ATTRIBUTE_VALUE_QUOTED";
-  State3[State3["SELF_CLOSING_START_TAG"] = 39] = "SELF_CLOSING_START_TAG";
-  State3[State3["BOGUS_COMMENT"] = 40] = "BOGUS_COMMENT";
-  State3[State3["MARKUP_DECLARATION_OPEN"] = 41] = "MARKUP_DECLARATION_OPEN";
-  State3[State3["COMMENT_START"] = 42] = "COMMENT_START";
-  State3[State3["COMMENT_START_DASH"] = 43] = "COMMENT_START_DASH";
-  State3[State3["COMMENT"] = 44] = "COMMENT";
-  State3[State3["COMMENT_LESS_THAN_SIGN"] = 45] = "COMMENT_LESS_THAN_SIGN";
-  State3[State3["COMMENT_LESS_THAN_SIGN_BANG"] = 46] = "COMMENT_LESS_THAN_SIGN_BANG";
-  State3[State3["COMMENT_LESS_THAN_SIGN_BANG_DASH"] = 47] = "COMMENT_LESS_THAN_SIGN_BANG_DASH";
-  State3[State3["COMMENT_LESS_THAN_SIGN_BANG_DASH_DASH"] = 48] = "COMMENT_LESS_THAN_SIGN_BANG_DASH_DASH";
-  State3[State3["COMMENT_END_DASH"] = 49] = "COMMENT_END_DASH";
-  State3[State3["COMMENT_END"] = 50] = "COMMENT_END";
-  State3[State3["COMMENT_END_BANG"] = 51] = "COMMENT_END_BANG";
-  State3[State3["DOCTYPE"] = 52] = "DOCTYPE";
-  State3[State3["BEFORE_DOCTYPE_NAME"] = 53] = "BEFORE_DOCTYPE_NAME";
-  State3[State3["DOCTYPE_NAME"] = 54] = "DOCTYPE_NAME";
-  State3[State3["AFTER_DOCTYPE_NAME"] = 55] = "AFTER_DOCTYPE_NAME";
-  State3[State3["AFTER_DOCTYPE_PUBLIC_KEYWORD"] = 56] = "AFTER_DOCTYPE_PUBLIC_KEYWORD";
-  State3[State3["BEFORE_DOCTYPE_PUBLIC_IDENTIFIER"] = 57] = "BEFORE_DOCTYPE_PUBLIC_IDENTIFIER";
-  State3[State3["DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED"] = 58] = "DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED";
-  State3[State3["DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED"] = 59] = "DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED";
-  State3[State3["AFTER_DOCTYPE_PUBLIC_IDENTIFIER"] = 60] = "AFTER_DOCTYPE_PUBLIC_IDENTIFIER";
-  State3[State3["BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS"] = 61] = "BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS";
-  State3[State3["AFTER_DOCTYPE_SYSTEM_KEYWORD"] = 62] = "AFTER_DOCTYPE_SYSTEM_KEYWORD";
-  State3[State3["BEFORE_DOCTYPE_SYSTEM_IDENTIFIER"] = 63] = "BEFORE_DOCTYPE_SYSTEM_IDENTIFIER";
-  State3[State3["DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED"] = 64] = "DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED";
-  State3[State3["DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED"] = 65] = "DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED";
-  State3[State3["AFTER_DOCTYPE_SYSTEM_IDENTIFIER"] = 66] = "AFTER_DOCTYPE_SYSTEM_IDENTIFIER";
-  State3[State3["BOGUS_DOCTYPE"] = 67] = "BOGUS_DOCTYPE";
-  State3[State3["CDATA_SECTION"] = 68] = "CDATA_SECTION";
-  State3[State3["CDATA_SECTION_BRACKET"] = 69] = "CDATA_SECTION_BRACKET";
-  State3[State3["CDATA_SECTION_END"] = 70] = "CDATA_SECTION_END";
-  State3[State3["CHARACTER_REFERENCE"] = 71] = "CHARACTER_REFERENCE";
-  State3[State3["AMBIGUOUS_AMPERSAND"] = 72] = "AMBIGUOUS_AMPERSAND";
+(function(State) {
+  State[State["DATA"] = 0] = "DATA";
+  State[State["RCDATA"] = 1] = "RCDATA";
+  State[State["RAWTEXT"] = 2] = "RAWTEXT";
+  State[State["SCRIPT_DATA"] = 3] = "SCRIPT_DATA";
+  State[State["PLAINTEXT"] = 4] = "PLAINTEXT";
+  State[State["TAG_OPEN"] = 5] = "TAG_OPEN";
+  State[State["END_TAG_OPEN"] = 6] = "END_TAG_OPEN";
+  State[State["TAG_NAME"] = 7] = "TAG_NAME";
+  State[State["RCDATA_LESS_THAN_SIGN"] = 8] = "RCDATA_LESS_THAN_SIGN";
+  State[State["RCDATA_END_TAG_OPEN"] = 9] = "RCDATA_END_TAG_OPEN";
+  State[State["RCDATA_END_TAG_NAME"] = 10] = "RCDATA_END_TAG_NAME";
+  State[State["RAWTEXT_LESS_THAN_SIGN"] = 11] = "RAWTEXT_LESS_THAN_SIGN";
+  State[State["RAWTEXT_END_TAG_OPEN"] = 12] = "RAWTEXT_END_TAG_OPEN";
+  State[State["RAWTEXT_END_TAG_NAME"] = 13] = "RAWTEXT_END_TAG_NAME";
+  State[State["SCRIPT_DATA_LESS_THAN_SIGN"] = 14] = "SCRIPT_DATA_LESS_THAN_SIGN";
+  State[State["SCRIPT_DATA_END_TAG_OPEN"] = 15] = "SCRIPT_DATA_END_TAG_OPEN";
+  State[State["SCRIPT_DATA_END_TAG_NAME"] = 16] = "SCRIPT_DATA_END_TAG_NAME";
+  State[State["SCRIPT_DATA_ESCAPE_START"] = 17] = "SCRIPT_DATA_ESCAPE_START";
+  State[State["SCRIPT_DATA_ESCAPE_START_DASH"] = 18] = "SCRIPT_DATA_ESCAPE_START_DASH";
+  State[State["SCRIPT_DATA_ESCAPED"] = 19] = "SCRIPT_DATA_ESCAPED";
+  State[State["SCRIPT_DATA_ESCAPED_DASH"] = 20] = "SCRIPT_DATA_ESCAPED_DASH";
+  State[State["SCRIPT_DATA_ESCAPED_DASH_DASH"] = 21] = "SCRIPT_DATA_ESCAPED_DASH_DASH";
+  State[State["SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN"] = 22] = "SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN";
+  State[State["SCRIPT_DATA_ESCAPED_END_TAG_OPEN"] = 23] = "SCRIPT_DATA_ESCAPED_END_TAG_OPEN";
+  State[State["SCRIPT_DATA_ESCAPED_END_TAG_NAME"] = 24] = "SCRIPT_DATA_ESCAPED_END_TAG_NAME";
+  State[State["SCRIPT_DATA_DOUBLE_ESCAPE_START"] = 25] = "SCRIPT_DATA_DOUBLE_ESCAPE_START";
+  State[State["SCRIPT_DATA_DOUBLE_ESCAPED"] = 26] = "SCRIPT_DATA_DOUBLE_ESCAPED";
+  State[State["SCRIPT_DATA_DOUBLE_ESCAPED_DASH"] = 27] = "SCRIPT_DATA_DOUBLE_ESCAPED_DASH";
+  State[State["SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH"] = 28] = "SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH";
+  State[State["SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN"] = 29] = "SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN";
+  State[State["SCRIPT_DATA_DOUBLE_ESCAPE_END"] = 30] = "SCRIPT_DATA_DOUBLE_ESCAPE_END";
+  State[State["BEFORE_ATTRIBUTE_NAME"] = 31] = "BEFORE_ATTRIBUTE_NAME";
+  State[State["ATTRIBUTE_NAME"] = 32] = "ATTRIBUTE_NAME";
+  State[State["AFTER_ATTRIBUTE_NAME"] = 33] = "AFTER_ATTRIBUTE_NAME";
+  State[State["BEFORE_ATTRIBUTE_VALUE"] = 34] = "BEFORE_ATTRIBUTE_VALUE";
+  State[State["ATTRIBUTE_VALUE_DOUBLE_QUOTED"] = 35] = "ATTRIBUTE_VALUE_DOUBLE_QUOTED";
+  State[State["ATTRIBUTE_VALUE_SINGLE_QUOTED"] = 36] = "ATTRIBUTE_VALUE_SINGLE_QUOTED";
+  State[State["ATTRIBUTE_VALUE_UNQUOTED"] = 37] = "ATTRIBUTE_VALUE_UNQUOTED";
+  State[State["AFTER_ATTRIBUTE_VALUE_QUOTED"] = 38] = "AFTER_ATTRIBUTE_VALUE_QUOTED";
+  State[State["SELF_CLOSING_START_TAG"] = 39] = "SELF_CLOSING_START_TAG";
+  State[State["BOGUS_COMMENT"] = 40] = "BOGUS_COMMENT";
+  State[State["MARKUP_DECLARATION_OPEN"] = 41] = "MARKUP_DECLARATION_OPEN";
+  State[State["COMMENT_START"] = 42] = "COMMENT_START";
+  State[State["COMMENT_START_DASH"] = 43] = "COMMENT_START_DASH";
+  State[State["COMMENT"] = 44] = "COMMENT";
+  State[State["COMMENT_LESS_THAN_SIGN"] = 45] = "COMMENT_LESS_THAN_SIGN";
+  State[State["COMMENT_LESS_THAN_SIGN_BANG"] = 46] = "COMMENT_LESS_THAN_SIGN_BANG";
+  State[State["COMMENT_LESS_THAN_SIGN_BANG_DASH"] = 47] = "COMMENT_LESS_THAN_SIGN_BANG_DASH";
+  State[State["COMMENT_LESS_THAN_SIGN_BANG_DASH_DASH"] = 48] = "COMMENT_LESS_THAN_SIGN_BANG_DASH_DASH";
+  State[State["COMMENT_END_DASH"] = 49] = "COMMENT_END_DASH";
+  State[State["COMMENT_END"] = 50] = "COMMENT_END";
+  State[State["COMMENT_END_BANG"] = 51] = "COMMENT_END_BANG";
+  State[State["DOCTYPE"] = 52] = "DOCTYPE";
+  State[State["BEFORE_DOCTYPE_NAME"] = 53] = "BEFORE_DOCTYPE_NAME";
+  State[State["DOCTYPE_NAME"] = 54] = "DOCTYPE_NAME";
+  State[State["AFTER_DOCTYPE_NAME"] = 55] = "AFTER_DOCTYPE_NAME";
+  State[State["AFTER_DOCTYPE_PUBLIC_KEYWORD"] = 56] = "AFTER_DOCTYPE_PUBLIC_KEYWORD";
+  State[State["BEFORE_DOCTYPE_PUBLIC_IDENTIFIER"] = 57] = "BEFORE_DOCTYPE_PUBLIC_IDENTIFIER";
+  State[State["DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED"] = 58] = "DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED";
+  State[State["DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED"] = 59] = "DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED";
+  State[State["AFTER_DOCTYPE_PUBLIC_IDENTIFIER"] = 60] = "AFTER_DOCTYPE_PUBLIC_IDENTIFIER";
+  State[State["BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS"] = 61] = "BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS";
+  State[State["AFTER_DOCTYPE_SYSTEM_KEYWORD"] = 62] = "AFTER_DOCTYPE_SYSTEM_KEYWORD";
+  State[State["BEFORE_DOCTYPE_SYSTEM_IDENTIFIER"] = 63] = "BEFORE_DOCTYPE_SYSTEM_IDENTIFIER";
+  State[State["DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED"] = 64] = "DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED";
+  State[State["DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED"] = 65] = "DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED";
+  State[State["AFTER_DOCTYPE_SYSTEM_IDENTIFIER"] = 66] = "AFTER_DOCTYPE_SYSTEM_IDENTIFIER";
+  State[State["BOGUS_DOCTYPE"] = 67] = "BOGUS_DOCTYPE";
+  State[State["CDATA_SECTION"] = 68] = "CDATA_SECTION";
+  State[State["CDATA_SECTION_BRACKET"] = 69] = "CDATA_SECTION_BRACKET";
+  State[State["CDATA_SECTION_END"] = 70] = "CDATA_SECTION_END";
+  State[State["CHARACTER_REFERENCE"] = 71] = "CHARACTER_REFERENCE";
+  State[State["AMBIGUOUS_AMPERSAND"] = 72] = "AMBIGUOUS_AMPERSAND";
 })(State2 || (State2 = {}));
 var TokenizerMode = {
   DATA: State2.DATA,
@@ -11172,8 +11146,8 @@ class Tokenizer2 {
     } : undefined);
   }
   _err(code, cpOffset = 0) {
-    var _a4, _b;
-    (_b = (_a4 = this.handler).onParseError) === null || _b === undefined || _b.call(_a4, this.preprocessor.getError(code, cpOffset));
+    var _a, _b;
+    (_b = (_a = this.handler).onParseError) === null || _b === undefined || _b.call(_a, this.preprocessor.getError(code, cpOffset));
   }
   getCurrentLocation(offset) {
     if (!this.options.sourceCodeLocationInfo) {
@@ -11309,13 +11283,13 @@ class Tokenizer2 {
     this.currentLocation = this.getCurrentLocation(0);
   }
   _leaveAttrName() {
-    var _a4;
+    var _a;
     var _b;
     const token = this.currentToken;
     if (getTokenAttr(token, this.currentAttr.name) === null) {
       token.attrs.push(this.currentAttr);
       if (token.location && this.currentLocation) {
-        const attrLocations = (_a4 = (_b = token.location).attrs) !== null && _a4 !== undefined ? _a4 : _b.attrs = Object.create(null);
+        const attrLocations = (_a = (_b = token.location).attrs) !== null && _a !== undefined ? _a : _b.attrs = Object.create(null);
         attrLocations[this.currentAttr.name] = this.currentLocation;
         this._leaveAttrValue();
       }
@@ -13776,9 +13750,9 @@ class OpenElementStack {
 // node_modules/parse5/dist/parser/formatting-element-list.js
 var NOAH_ARK_CAPACITY = 3;
 var EntryType;
-(function(EntryType2) {
-  EntryType2[EntryType2["Marker"] = 0] = "Marker";
-  EntryType2[EntryType2["Element"] = 1] = "Element";
+(function(EntryType) {
+  EntryType[EntryType["Marker"] = 0] = "Marker";
+  EntryType[EntryType["Element"] = 1] = "Element";
 })(EntryType || (EntryType = {}));
 var MARKER = { type: EntryType.Marker };
 
@@ -13861,7 +13835,7 @@ class FormattingElementList {
     }
   }
   getElementEntryInScopeWithTagName(tagName) {
-    const entry = this.entries.find((entry2) => entry2.type === EntryType.Marker || this.treeAdapter.getTagName(entry2.element) === tagName);
+    const entry = this.entries.find((entry) => entry.type === EntryType.Marker || this.treeAdapter.getTagName(entry.element) === tagName);
     return entry && entry.type === EntryType.Element ? entry : null;
   }
   getElementEntry(element) {
@@ -13894,10 +13868,10 @@ var defaultTreeAdapter = {
       parentNode: null
     };
   },
-  createCommentNode(data2) {
+  createCommentNode(data) {
     return {
       nodeName: "#comment",
-      data: data2,
+      data,
       parentNode: null
     };
   },
@@ -13924,20 +13898,20 @@ var defaultTreeAdapter = {
     return templateElement.content;
   },
   setDocumentType(document, name, publicId, systemId) {
-    const doctypeNode = document.childNodes.find((node2) => node2.nodeName === "#documentType");
+    const doctypeNode = document.childNodes.find((node) => node.nodeName === "#documentType");
     if (doctypeNode) {
       doctypeNode.name = name;
       doctypeNode.publicId = publicId;
       doctypeNode.systemId = systemId;
     } else {
-      const node2 = {
+      const node = {
         nodeName: "#documentType",
         name,
         publicId,
         systemId,
         parentNode: null
       };
-      defaultTreeAdapter.appendChild(document, node2);
+      defaultTreeAdapter.appendChild(document, node);
     }
   },
   setDocumentMode(document, mode) {
@@ -13946,47 +13920,47 @@ var defaultTreeAdapter = {
   getDocumentMode(document) {
     return document.mode;
   },
-  detachNode(node2) {
-    if (node2.parentNode) {
-      const idx = node2.parentNode.childNodes.indexOf(node2);
-      node2.parentNode.childNodes.splice(idx, 1);
-      node2.parentNode = null;
+  detachNode(node) {
+    if (node.parentNode) {
+      const idx = node.parentNode.childNodes.indexOf(node);
+      node.parentNode.childNodes.splice(idx, 1);
+      node.parentNode = null;
     }
   },
-  insertText(parentNode, text3) {
+  insertText(parentNode, text) {
     if (parentNode.childNodes.length > 0) {
       const prevNode = parentNode.childNodes[parentNode.childNodes.length - 1];
       if (defaultTreeAdapter.isTextNode(prevNode)) {
-        prevNode.value += text3;
+        prevNode.value += text;
         return;
       }
     }
-    defaultTreeAdapter.appendChild(parentNode, defaultTreeAdapter.createTextNode(text3));
+    defaultTreeAdapter.appendChild(parentNode, defaultTreeAdapter.createTextNode(text));
   },
-  insertTextBefore(parentNode, text3, referenceNode) {
+  insertTextBefore(parentNode, text, referenceNode) {
     const prevNode = parentNode.childNodes[parentNode.childNodes.indexOf(referenceNode) - 1];
     if (prevNode && defaultTreeAdapter.isTextNode(prevNode)) {
-      prevNode.value += text3;
+      prevNode.value += text;
     } else {
-      defaultTreeAdapter.insertBefore(parentNode, defaultTreeAdapter.createTextNode(text3), referenceNode);
+      defaultTreeAdapter.insertBefore(parentNode, defaultTreeAdapter.createTextNode(text), referenceNode);
     }
   },
   adoptAttributes(recipient, attrs) {
-    const recipientAttrsMap = new Set(recipient.attrs.map((attr2) => attr2.name));
+    const recipientAttrsMap = new Set(recipient.attrs.map((attr) => attr.name));
     for (let j = 0;j < attrs.length; j++) {
       if (!recipientAttrsMap.has(attrs[j].name)) {
         recipient.attrs.push(attrs[j]);
       }
     }
   },
-  getFirstChild(node2) {
-    return node2.childNodes[0];
+  getFirstChild(node) {
+    return node.childNodes[0];
   },
-  getChildNodes(node2) {
-    return node2.childNodes;
+  getChildNodes(node) {
+    return node.childNodes;
   },
-  getParentNode(node2) {
-    return node2.parentNode;
+  getParentNode(node) {
+    return node.parentNode;
   },
   getAttrList(element) {
     return element.attrs;
@@ -14012,26 +13986,26 @@ var defaultTreeAdapter = {
   getDocumentTypeNodeSystemId(doctypeNode) {
     return doctypeNode.systemId;
   },
-  isTextNode(node2) {
-    return node2.nodeName === "#text";
+  isTextNode(node) {
+    return node.nodeName === "#text";
   },
-  isCommentNode(node2) {
-    return node2.nodeName === "#comment";
+  isCommentNode(node) {
+    return node.nodeName === "#comment";
   },
-  isDocumentTypeNode(node2) {
-    return node2.nodeName === "#documentType";
+  isDocumentTypeNode(node) {
+    return node.nodeName === "#documentType";
   },
-  isElementNode(node2) {
-    return Object.prototype.hasOwnProperty.call(node2, "tagName");
+  isElementNode(node) {
+    return Object.prototype.hasOwnProperty.call(node, "tagName");
   },
-  setNodeSourceCodeLocation(node2, location) {
-    node2.sourceCodeLocation = location;
+  setNodeSourceCodeLocation(node, location) {
+    node.sourceCodeLocation = location;
   },
-  getNodeSourceCodeLocation(node2) {
-    return node2.sourceCodeLocation;
+  getNodeSourceCodeLocation(node) {
+    return node.sourceCodeLocation;
   },
-  updateNodeSourceCodeLocation(node2, endLocation) {
-    node2.sourceCodeLocation = { ...node2.sourceCodeLocation, ...endLocation };
+  updateNodeSourceCodeLocation(node, endLocation) {
+    node.sourceCodeLocation = { ...node.sourceCodeLocation, ...endLocation };
   }
 };
 
@@ -14210,7 +14184,7 @@ var SVG_ATTRS_ADJUSTMENT_MAP = new Map([
   "xChannelSelector",
   "yChannelSelector",
   "zoomAndPan"
-].map((attr2) => [attr2.toLowerCase(), attr2]));
+].map((attr) => [attr.toLowerCase(), attr]));
 var XML_ATTRS_ADJUSTMENT_MAP = new Map([
   ["xlink:actuate", { prefix: "xlink", name: "actuate", namespace: NS.XLINK }],
   ["xlink:arcrole", { prefix: "xlink", name: "arcrole", namespace: NS.XLINK }],
@@ -14369,30 +14343,30 @@ var HIDDEN_INPUT_TYPE = "hidden";
 var AA_OUTER_LOOP_ITER = 8;
 var AA_INNER_LOOP_ITER = 3;
 var InsertionMode;
-(function(InsertionMode2) {
-  InsertionMode2[InsertionMode2["INITIAL"] = 0] = "INITIAL";
-  InsertionMode2[InsertionMode2["BEFORE_HTML"] = 1] = "BEFORE_HTML";
-  InsertionMode2[InsertionMode2["BEFORE_HEAD"] = 2] = "BEFORE_HEAD";
-  InsertionMode2[InsertionMode2["IN_HEAD"] = 3] = "IN_HEAD";
-  InsertionMode2[InsertionMode2["IN_HEAD_NO_SCRIPT"] = 4] = "IN_HEAD_NO_SCRIPT";
-  InsertionMode2[InsertionMode2["AFTER_HEAD"] = 5] = "AFTER_HEAD";
-  InsertionMode2[InsertionMode2["IN_BODY"] = 6] = "IN_BODY";
-  InsertionMode2[InsertionMode2["TEXT"] = 7] = "TEXT";
-  InsertionMode2[InsertionMode2["IN_TABLE"] = 8] = "IN_TABLE";
-  InsertionMode2[InsertionMode2["IN_TABLE_TEXT"] = 9] = "IN_TABLE_TEXT";
-  InsertionMode2[InsertionMode2["IN_CAPTION"] = 10] = "IN_CAPTION";
-  InsertionMode2[InsertionMode2["IN_COLUMN_GROUP"] = 11] = "IN_COLUMN_GROUP";
-  InsertionMode2[InsertionMode2["IN_TABLE_BODY"] = 12] = "IN_TABLE_BODY";
-  InsertionMode2[InsertionMode2["IN_ROW"] = 13] = "IN_ROW";
-  InsertionMode2[InsertionMode2["IN_CELL"] = 14] = "IN_CELL";
-  InsertionMode2[InsertionMode2["IN_SELECT"] = 15] = "IN_SELECT";
-  InsertionMode2[InsertionMode2["IN_SELECT_IN_TABLE"] = 16] = "IN_SELECT_IN_TABLE";
-  InsertionMode2[InsertionMode2["IN_TEMPLATE"] = 17] = "IN_TEMPLATE";
-  InsertionMode2[InsertionMode2["AFTER_BODY"] = 18] = "AFTER_BODY";
-  InsertionMode2[InsertionMode2["IN_FRAMESET"] = 19] = "IN_FRAMESET";
-  InsertionMode2[InsertionMode2["AFTER_FRAMESET"] = 20] = "AFTER_FRAMESET";
-  InsertionMode2[InsertionMode2["AFTER_AFTER_BODY"] = 21] = "AFTER_AFTER_BODY";
-  InsertionMode2[InsertionMode2["AFTER_AFTER_FRAMESET"] = 22] = "AFTER_AFTER_FRAMESET";
+(function(InsertionMode) {
+  InsertionMode[InsertionMode["INITIAL"] = 0] = "INITIAL";
+  InsertionMode[InsertionMode["BEFORE_HTML"] = 1] = "BEFORE_HTML";
+  InsertionMode[InsertionMode["BEFORE_HEAD"] = 2] = "BEFORE_HEAD";
+  InsertionMode[InsertionMode["IN_HEAD"] = 3] = "IN_HEAD";
+  InsertionMode[InsertionMode["IN_HEAD_NO_SCRIPT"] = 4] = "IN_HEAD_NO_SCRIPT";
+  InsertionMode[InsertionMode["AFTER_HEAD"] = 5] = "AFTER_HEAD";
+  InsertionMode[InsertionMode["IN_BODY"] = 6] = "IN_BODY";
+  InsertionMode[InsertionMode["TEXT"] = 7] = "TEXT";
+  InsertionMode[InsertionMode["IN_TABLE"] = 8] = "IN_TABLE";
+  InsertionMode[InsertionMode["IN_TABLE_TEXT"] = 9] = "IN_TABLE_TEXT";
+  InsertionMode[InsertionMode["IN_CAPTION"] = 10] = "IN_CAPTION";
+  InsertionMode[InsertionMode["IN_COLUMN_GROUP"] = 11] = "IN_COLUMN_GROUP";
+  InsertionMode[InsertionMode["IN_TABLE_BODY"] = 12] = "IN_TABLE_BODY";
+  InsertionMode[InsertionMode["IN_ROW"] = 13] = "IN_ROW";
+  InsertionMode[InsertionMode["IN_CELL"] = 14] = "IN_CELL";
+  InsertionMode[InsertionMode["IN_SELECT"] = 15] = "IN_SELECT";
+  InsertionMode[InsertionMode["IN_SELECT_IN_TABLE"] = 16] = "IN_SELECT_IN_TABLE";
+  InsertionMode[InsertionMode["IN_TEMPLATE"] = 17] = "IN_TEMPLATE";
+  InsertionMode[InsertionMode["AFTER_BODY"] = 18] = "AFTER_BODY";
+  InsertionMode[InsertionMode["IN_FRAMESET"] = 19] = "IN_FRAMESET";
+  InsertionMode[InsertionMode["AFTER_FRAMESET"] = 20] = "AFTER_FRAMESET";
+  InsertionMode[InsertionMode["AFTER_AFTER_BODY"] = 21] = "AFTER_AFTER_BODY";
+  InsertionMode[InsertionMode["AFTER_AFTER_FRAMESET"] = 22] = "AFTER_AFTER_FRAMESET";
 })(InsertionMode || (InsertionMode = {}));
 var BASE_LOC = {
   startLine: -1,
@@ -14443,9 +14417,9 @@ class Parser2 {
     this._setContextModes(fragmentContext !== null && fragmentContext !== undefined ? fragmentContext : this.document, this.fragmentContextID);
     this.openElements = new OpenElementStack(this.document, this.treeAdapter, this);
   }
-  static parse(html3, options) {
+  static parse(html, options) {
     const parser = new this(options);
-    parser.tokenizer.write(html3, true);
+    parser.tokenizer.write(html, true);
     return parser.document;
   }
   static getFragmentParser(fragmentContext, options) {
@@ -14472,10 +14446,10 @@ class Parser2 {
     return fragment;
   }
   _err(token, code, beforeToken) {
-    var _a4;
+    var _a;
     if (!this.onParseError)
       return;
-    const loc = (_a4 = token.location) !== null && _a4 !== undefined ? _a4 : BASE_LOC;
+    const loc = (_a = token.location) !== null && _a !== undefined ? _a : BASE_LOC;
     const err = {
       code,
       startLine: loc.startLine,
@@ -14487,18 +14461,18 @@ class Parser2 {
     };
     this.onParseError(err);
   }
-  onItemPush(node2, tid, isTop) {
-    var _a4, _b;
-    (_b = (_a4 = this.treeAdapter).onItemPush) === null || _b === undefined || _b.call(_a4, node2);
+  onItemPush(node, tid, isTop) {
+    var _a, _b;
+    (_b = (_a = this.treeAdapter).onItemPush) === null || _b === undefined || _b.call(_a, node);
     if (isTop && this.openElements.stackTop > 0)
-      this._setContextModes(node2, tid);
+      this._setContextModes(node, tid);
   }
-  onItemPop(node2, isTop) {
-    var _a4, _b;
+  onItemPop(node, isTop) {
+    var _a, _b;
     if (this.options.sourceCodeLocationInfo) {
-      this._setEndLocation(node2, this.currentToken);
+      this._setEndLocation(node, this.currentToken);
     }
-    (_b = (_a4 = this.treeAdapter).onItemPop) === null || _b === undefined || _b.call(_a4, node2, this.openElements.current);
+    (_b = (_a = this.treeAdapter).onItemPop) === null || _b === undefined || _b.call(_a, node, this.openElements.current);
     if (isTop) {
       let current;
       let currentTagId;
@@ -14531,13 +14505,13 @@ class Parser2 {
     return this.openElements.stackTop === 0 && this.fragmentContext ? this.fragmentContext : this.openElements.current;
   }
   _findFormInFragmentContext() {
-    let node2 = this.fragmentContext;
-    while (node2) {
-      if (this.treeAdapter.getTagName(node2) === TAG_NAMES.FORM) {
-        this.formElement = node2;
+    let node = this.fragmentContext;
+    while (node) {
+      if (this.treeAdapter.getTagName(node) === TAG_NAMES.FORM) {
+        this.formElement = node;
         break;
       }
-      node2 = this.treeAdapter.getParentNode(node2);
+      node = this.treeAdapter.getParentNode(node);
     }
   }
   _initTokenizerForFragmentParsing() {
@@ -14577,7 +14551,7 @@ class Parser2 {
     this.treeAdapter.setDocumentType(this.document, name, publicId, systemId);
     if (token.location) {
       const documentChildren = this.treeAdapter.getChildNodes(this.document);
-      const docTypeNode = documentChildren.find((node2) => this.treeAdapter.isDocumentTypeNode(node2));
+      const docTypeNode = documentChildren.find((node) => this.treeAdapter.isDocumentTypeNode(node));
       if (docTypeNode) {
         this.treeAdapter.setNodeSourceCodeLocation(docTypeNode, token.location);
       }
@@ -14594,8 +14568,8 @@ class Parser2 {
     if (this._shouldFosterParentOnInsertion()) {
       this._fosterParentElement(element);
     } else {
-      const parent2 = this.openElements.currentTmplContentOrNode;
-      this.treeAdapter.appendChild(parent2 !== null && parent2 !== undefined ? parent2 : this.document, element);
+      const parent = this.openElements.currentTmplContentOrNode;
+      this.treeAdapter.appendChild(parent !== null && parent !== undefined ? parent : this.document, element);
     }
   }
   _appendElement(token, namespaceURI) {
@@ -14628,32 +14602,32 @@ class Parser2 {
     this.treeAdapter.appendChild(this.openElements.current, element);
     this.openElements.push(element, TAG_ID.HTML);
   }
-  _appendCommentNode(token, parent2) {
+  _appendCommentNode(token, parent) {
     const commentNode = this.treeAdapter.createCommentNode(token.data);
-    this.treeAdapter.appendChild(parent2, commentNode);
+    this.treeAdapter.appendChild(parent, commentNode);
     if (this.options.sourceCodeLocationInfo) {
       this.treeAdapter.setNodeSourceCodeLocation(commentNode, token.location);
     }
   }
   _insertCharacters(token) {
-    let parent2;
+    let parent;
     let beforeElement;
     if (this._shouldFosterParentOnInsertion()) {
-      ({ parent: parent2, beforeElement } = this._findFosterParentingLocation());
+      ({ parent, beforeElement } = this._findFosterParentingLocation());
       if (beforeElement) {
-        this.treeAdapter.insertTextBefore(parent2, token.chars, beforeElement);
+        this.treeAdapter.insertTextBefore(parent, token.chars, beforeElement);
       } else {
-        this.treeAdapter.insertText(parent2, token.chars);
+        this.treeAdapter.insertText(parent, token.chars);
       }
     } else {
-      parent2 = this.openElements.currentTmplContentOrNode;
-      this.treeAdapter.insertText(parent2, token.chars);
+      parent = this.openElements.currentTmplContentOrNode;
+      this.treeAdapter.insertText(parent, token.chars);
     }
     if (!token.location)
       return;
-    const siblings2 = this.treeAdapter.getChildNodes(parent2);
-    const textNodeIdx = beforeElement ? siblings2.lastIndexOf(beforeElement) : siblings2.length;
-    const textNode = siblings2[textNodeIdx - 1];
+    const siblings = this.treeAdapter.getChildNodes(parent);
+    const textNodeIdx = beforeElement ? siblings.lastIndexOf(beforeElement) : siblings.length;
+    const textNode = siblings[textNodeIdx - 1];
     const tnLoc = this.treeAdapter.getNodeSourceCodeLocation(textNode);
     if (tnLoc) {
       const { endLine, endCol, endOffset } = token.location;
@@ -14859,9 +14833,9 @@ class Parser2 {
           break;
         }
         case TAG_ID.TABLE: {
-          const parent2 = this.treeAdapter.getParentNode(openElement);
-          if (parent2) {
-            return { parent: parent2, beforeElement: openElement };
+          const parent = this.treeAdapter.getParentNode(openElement);
+          if (parent) {
+            return { parent, beforeElement: openElement };
           }
           return { parent: this.openElements.items[i - 1], beforeElement: null };
         }
@@ -16503,9 +16477,9 @@ function eofInBody(p, token) {
   }
 }
 function endTagInText(p, token) {
-  var _a4;
+  var _a;
   if (token.tagID === TAG_ID.SCRIPT) {
-    (_a4 = p.scriptHandler) === null || _a4 === undefined || _a4.call(p, p.openElements.current);
+    (_a = p.scriptHandler) === null || _a === undefined || _a.call(p, p.openElements.current);
   }
   p.openElements.pop();
   p.insertionMode = p.originalInsertionMode;
@@ -17165,7 +17139,7 @@ function startTagAfterBody(p, token) {
   }
 }
 function endTagAfterBody(p, token) {
-  var _a4;
+  var _a;
   if (token.tagID === TAG_ID.HTML) {
     if (!p.fragmentContext) {
       p.insertionMode = InsertionMode.AFTER_AFTER_BODY;
@@ -17173,7 +17147,7 @@ function endTagAfterBody(p, token) {
     if (p.options.sourceCodeLocationInfo && p.openElements.tagIDs[0] === TAG_ID.HTML) {
       p._setEndLocation(p.openElements.items[0], token);
       const bodyElement = p.openElements.items[1];
-      if (bodyElement && !((_a4 = p.treeAdapter.getNodeSourceCodeLocation(bodyElement)) === null || _a4 === undefined ? undefined : _a4.endTag)) {
+      if (bodyElement && !((_a = p.treeAdapter.getNodeSourceCodeLocation(bodyElement)) === null || _a === undefined ? undefined : _a.endTag)) {
         p._setEndLocation(bodyElement, token);
       }
     }
@@ -17320,20 +17294,20 @@ var xmlCodeMap2 = new Map([
   [60, "&lt;"],
   [62, "&gt;"]
 ]);
-var getCodePoint2 = String.prototype.codePointAt == null ? (c, index2) => (c.charCodeAt(index2) & 64512) === 55296 ? (c.charCodeAt(index2) - 55296) * 1024 + c.charCodeAt(index2 + 1) - 56320 + 65536 : c.charCodeAt(index2) : (input, index2) => input.codePointAt(index2);
-function getEscaper2(regex, map2) {
-  return function escape2(data2) {
+var getCodePoint2 = String.prototype.codePointAt == null ? (c, index) => (c.charCodeAt(index) & 64512) === 55296 ? (c.charCodeAt(index) - 55296) * 1024 + c.charCodeAt(index + 1) - 56320 + 65536 : c.charCodeAt(index) : (input, index) => input.codePointAt(index);
+function getEscaper2(regex, map) {
+  return function escape(data) {
     let match;
     let lastIndex = 0;
     let result = "";
-    while (match = regex.exec(data2)) {
+    while (match = regex.exec(data)) {
       if (lastIndex !== match.index) {
-        result += data2.substring(lastIndex, match.index);
+        result += data.substring(lastIndex, match.index);
       }
-      result += map2.get(match[0].charCodeAt(0));
+      result += map.get(match[0].charCodeAt(0));
       lastIndex = match.index + 1;
     }
-    return result + data2.substring(lastIndex);
+    return result + data.substring(lastIndex);
   };
 }
 var escapeAttribute2 = /* @__PURE__ */ getEscaper2(/["&\u00A0]/g, new Map([
@@ -17369,102 +17343,102 @@ var VOID_ELEMENTS = new Set([
   TAG_NAMES.TRACK,
   TAG_NAMES.WBR
 ]);
-function isVoidElement(node2, options) {
-  return options.treeAdapter.isElementNode(node2) && options.treeAdapter.getNamespaceURI(node2) === NS.HTML && VOID_ELEMENTS.has(options.treeAdapter.getTagName(node2));
+function isVoidElement(node, options) {
+  return options.treeAdapter.isElementNode(node) && options.treeAdapter.getNamespaceURI(node) === NS.HTML && VOID_ELEMENTS.has(options.treeAdapter.getTagName(node));
 }
 var defaultOpts3 = { treeAdapter: defaultTreeAdapter, scriptingEnabled: true };
-function serializeOuter(node2, options) {
+function serializeOuter(node, options) {
   const opts = { ...defaultOpts3, ...options };
-  return serializeNode(node2, opts);
+  return serializeNode(node, opts);
 }
 function serializeChildNodes(parentNode, options) {
-  let html3 = "";
+  let html = "";
   const container = options.treeAdapter.isElementNode(parentNode) && options.treeAdapter.getTagName(parentNode) === TAG_NAMES.TEMPLATE && options.treeAdapter.getNamespaceURI(parentNode) === NS.HTML ? options.treeAdapter.getTemplateContent(parentNode) : parentNode;
   const childNodes = options.treeAdapter.getChildNodes(container);
   if (childNodes) {
     for (const currentNode of childNodes) {
-      html3 += serializeNode(currentNode, options);
+      html += serializeNode(currentNode, options);
     }
   }
-  return html3;
+  return html;
 }
-function serializeNode(node2, options) {
-  if (options.treeAdapter.isElementNode(node2)) {
-    return serializeElement(node2, options);
+function serializeNode(node, options) {
+  if (options.treeAdapter.isElementNode(node)) {
+    return serializeElement(node, options);
   }
-  if (options.treeAdapter.isTextNode(node2)) {
-    return serializeTextNode(node2, options);
+  if (options.treeAdapter.isTextNode(node)) {
+    return serializeTextNode(node, options);
   }
-  if (options.treeAdapter.isCommentNode(node2)) {
-    return serializeCommentNode(node2, options);
+  if (options.treeAdapter.isCommentNode(node)) {
+    return serializeCommentNode(node, options);
   }
-  if (options.treeAdapter.isDocumentTypeNode(node2)) {
-    return serializeDocumentTypeNode(node2, options);
+  if (options.treeAdapter.isDocumentTypeNode(node)) {
+    return serializeDocumentTypeNode(node, options);
   }
   return "";
 }
-function serializeElement(node2, options) {
-  const tn = options.treeAdapter.getTagName(node2);
-  return `<${tn}${serializeAttributes(node2, options)}>${isVoidElement(node2, options) ? "" : `${serializeChildNodes(node2, options)}</${tn}>`}`;
+function serializeElement(node, options) {
+  const tn = options.treeAdapter.getTagName(node);
+  return `<${tn}${serializeAttributes(node, options)}>${isVoidElement(node, options) ? "" : `${serializeChildNodes(node, options)}</${tn}>`}`;
 }
-function serializeAttributes(node2, { treeAdapter }) {
-  let html3 = "";
-  for (const attr2 of treeAdapter.getAttrList(node2)) {
-    html3 += " ";
-    if (attr2.namespace) {
-      switch (attr2.namespace) {
+function serializeAttributes(node, { treeAdapter }) {
+  let html = "";
+  for (const attr of treeAdapter.getAttrList(node)) {
+    html += " ";
+    if (attr.namespace) {
+      switch (attr.namespace) {
         case NS.XML: {
-          html3 += `xml:${attr2.name}`;
+          html += `xml:${attr.name}`;
           break;
         }
         case NS.XMLNS: {
-          if (attr2.name !== "xmlns") {
-            html3 += "xmlns:";
+          if (attr.name !== "xmlns") {
+            html += "xmlns:";
           }
-          html3 += attr2.name;
+          html += attr.name;
           break;
         }
         case NS.XLINK: {
-          html3 += `xlink:${attr2.name}`;
+          html += `xlink:${attr.name}`;
           break;
         }
         default: {
-          html3 += `${attr2.prefix}:${attr2.name}`;
+          html += `${attr.prefix}:${attr.name}`;
         }
       }
     } else {
-      html3 += attr2.name;
+      html += attr.name;
     }
-    html3 += `="${escapeAttribute2(attr2.value)}"`;
+    html += `="${escapeAttribute2(attr.value)}"`;
   }
-  return html3;
+  return html;
 }
-function serializeTextNode(node2, options) {
+function serializeTextNode(node, options) {
   const { treeAdapter } = options;
-  const content = treeAdapter.getTextNodeContent(node2);
-  const parent2 = treeAdapter.getParentNode(node2);
-  const parentTn = parent2 && treeAdapter.isElementNode(parent2) && treeAdapter.getTagName(parent2);
-  return parentTn && treeAdapter.getNamespaceURI(parent2) === NS.HTML && hasUnescapedText(parentTn, options.scriptingEnabled) ? content : escapeText2(content);
+  const content = treeAdapter.getTextNodeContent(node);
+  const parent = treeAdapter.getParentNode(node);
+  const parentTn = parent && treeAdapter.isElementNode(parent) && treeAdapter.getTagName(parent);
+  return parentTn && treeAdapter.getNamespaceURI(parent) === NS.HTML && hasUnescapedText(parentTn, options.scriptingEnabled) ? content : escapeText2(content);
 }
-function serializeCommentNode(node2, { treeAdapter }) {
-  return `<!--${treeAdapter.getCommentNodeContent(node2)}-->`;
+function serializeCommentNode(node, { treeAdapter }) {
+  return `<!--${treeAdapter.getCommentNodeContent(node)}-->`;
 }
-function serializeDocumentTypeNode(node2, { treeAdapter }) {
-  return `<!DOCTYPE ${treeAdapter.getDocumentTypeNodeName(node2)}>`;
+function serializeDocumentTypeNode(node, { treeAdapter }) {
+  return `<!DOCTYPE ${treeAdapter.getDocumentTypeNodeName(node)}>`;
 }
 
 // node_modules/parse5/dist/index.js
-function parse4(html3, options) {
-  return Parser2.parse(html3, options);
+function parse4(html, options) {
+  return Parser2.parse(html, options);
 }
-function parseFragment(fragmentContext, html3, options) {
+function parseFragment(fragmentContext, html, options) {
   if (typeof fragmentContext === "string") {
-    options = html3;
-    html3 = fragmentContext;
+    options = html;
+    html = fragmentContext;
     fragmentContext = null;
   }
   const parser = Parser2.getFragmentParser(fragmentContext, options);
-  parser.tokenizer.write(html3, true);
+  parser.tokenizer.write(html, true);
   return parser.getFragment();
 }
 
@@ -17493,9 +17467,9 @@ var adapter = {
   isElementNode: isTag2,
   isTextNode: isText,
   createDocument() {
-    const node2 = new Document([]);
-    node2["x-mode"] = exports_html.DOCUMENT_MODE.NO_QUIRKS;
-    return node2;
+    const node = new Document([]);
+    node["x-mode"] = DOCUMENT_MODE.NO_QUIRKS;
+    return node;
   },
   createDocumentFragment() {
     return new Document([]);
@@ -17510,33 +17484,33 @@ var adapter = {
       attribsNamespace[attrName] = attrs[i].namespace;
       attribsPrefix[attrName] = attrs[i].prefix;
     }
-    const node2 = new Element(tagName, attribs, []);
-    node2.namespace = namespaceURI;
-    node2["x-attribsNamespace"] = attribsNamespace;
-    node2["x-attribsPrefix"] = attribsPrefix;
-    return node2;
+    const node = new Element(tagName, attribs, []);
+    node.namespace = namespaceURI;
+    node["x-attribsNamespace"] = attribsNamespace;
+    node["x-attribsPrefix"] = attribsPrefix;
+    return node;
   },
-  createCommentNode(data2) {
-    return new Comment2(data2);
+  createCommentNode(data) {
+    return new Comment2(data);
   },
   createTextNode(value) {
     return new Text2(value);
   },
   appendChild(parentNode, newNode) {
-    const prev2 = parentNode.children[parentNode.children.length - 1];
-    if (prev2) {
-      prev2.next = newNode;
-      newNode.prev = prev2;
+    const prev = parentNode.children[parentNode.children.length - 1];
+    if (prev) {
+      prev.next = newNode;
+      newNode.prev = prev;
     }
     parentNode.children.push(newNode);
     newNode.parent = parentNode;
   },
   insertBefore(parentNode, newNode, referenceNode) {
     const insertionIdx = parentNode.children.indexOf(referenceNode);
-    const { prev: prev2 } = referenceNode;
-    if (prev2) {
-      prev2.next = newNode;
-      newNode.prev = prev2;
+    const { prev } = referenceNode;
+    if (prev) {
+      prev.next = newNode;
+      newNode.prev = prev;
     }
     referenceNode.prev = newNode;
     newNode.next = referenceNode;
@@ -17550,12 +17524,12 @@ var adapter = {
     return templateElement.children[0];
   },
   setDocumentType(document, name, publicId, systemId) {
-    const data2 = serializeDoctypeContent(name, publicId, systemId);
-    let doctypeNode = document.children.find((node2) => isDirective(node2) && node2.name === "!doctype");
+    const data = serializeDoctypeContent(name, publicId, systemId);
+    let doctypeNode = document.children.find((node) => isDirective(node) && node.name === "!doctype");
     if (doctypeNode) {
-      doctypeNode.data = data2 !== null && data2 !== undefined ? data2 : null;
+      doctypeNode.data = data !== null && data !== undefined ? data : null;
     } else {
-      doctypeNode = new ProcessingInstruction("!doctype", data2);
+      doctypeNode = new ProcessingInstruction("!doctype", data);
       adapter.appendChild(document, doctypeNode);
     }
     doctypeNode["x-name"] = name;
@@ -17568,36 +17542,36 @@ var adapter = {
   getDocumentMode(document) {
     return document["x-mode"];
   },
-  detachNode(node2) {
-    if (node2.parent) {
-      const idx = node2.parent.children.indexOf(node2);
-      const { prev: prev2, next: next2 } = node2;
-      node2.prev = null;
-      node2.next = null;
-      if (prev2) {
-        prev2.next = next2;
+  detachNode(node) {
+    if (node.parent) {
+      const idx = node.parent.children.indexOf(node);
+      const { prev, next } = node;
+      node.prev = null;
+      node.next = null;
+      if (prev) {
+        prev.next = next;
       }
-      if (next2) {
-        next2.prev = prev2;
+      if (next) {
+        next.prev = prev;
       }
-      node2.parent.children.splice(idx, 1);
-      node2.parent = null;
+      node.parent.children.splice(idx, 1);
+      node.parent = null;
     }
   },
-  insertText(parentNode, text3) {
+  insertText(parentNode, text) {
     const lastChild = parentNode.children[parentNode.children.length - 1];
     if (lastChild && isText(lastChild)) {
-      lastChild.data += text3;
+      lastChild.data += text;
     } else {
-      adapter.appendChild(parentNode, adapter.createTextNode(text3));
+      adapter.appendChild(parentNode, adapter.createTextNode(text));
     }
   },
-  insertTextBefore(parentNode, text3, referenceNode) {
+  insertTextBefore(parentNode, text, referenceNode) {
     const prevNode = parentNode.children[parentNode.children.indexOf(referenceNode) - 1];
     if (prevNode && isText(prevNode)) {
-      prevNode.data += text3;
+      prevNode.data += text;
     } else {
-      adapter.insertBefore(parentNode, adapter.createTextNode(text3), referenceNode);
+      adapter.insertBefore(parentNode, adapter.createTextNode(text), referenceNode);
     }
   },
   adoptAttributes(recipient, attrs) {
@@ -17610,14 +17584,14 @@ var adapter = {
       }
     }
   },
-  getFirstChild(node2) {
-    return node2.children[0];
+  getFirstChild(node) {
+    return node.children[0];
   },
-  getChildNodes(node2) {
-    return node2.children;
+  getChildNodes(node) {
+    return node.children;
   },
-  getParentNode(node2) {
-    return node2.parent;
+  getParentNode(node) {
+    return node.parent;
   },
   getAttrList(element) {
     return element.attributes;
@@ -17635,68 +17609,68 @@ var adapter = {
     return commentNode.data;
   },
   getDocumentTypeNodeName(doctypeNode) {
-    var _a4;
-    return (_a4 = doctypeNode["x-name"]) !== null && _a4 !== undefined ? _a4 : "";
+    var _a;
+    return (_a = doctypeNode["x-name"]) !== null && _a !== undefined ? _a : "";
   },
   getDocumentTypeNodePublicId(doctypeNode) {
-    var _a4;
-    return (_a4 = doctypeNode["x-publicId"]) !== null && _a4 !== undefined ? _a4 : "";
+    var _a;
+    return (_a = doctypeNode["x-publicId"]) !== null && _a !== undefined ? _a : "";
   },
   getDocumentTypeNodeSystemId(doctypeNode) {
-    var _a4;
-    return (_a4 = doctypeNode["x-systemId"]) !== null && _a4 !== undefined ? _a4 : "";
+    var _a;
+    return (_a = doctypeNode["x-systemId"]) !== null && _a !== undefined ? _a : "";
   },
-  isDocumentTypeNode(node2) {
-    return isDirective(node2) && node2.name === "!doctype";
+  isDocumentTypeNode(node) {
+    return isDirective(node) && node.name === "!doctype";
   },
-  setNodeSourceCodeLocation(node2, location) {
+  setNodeSourceCodeLocation(node, location) {
     if (location) {
-      node2.startIndex = location.startOffset;
-      node2.endIndex = location.endOffset;
+      node.startIndex = location.startOffset;
+      node.endIndex = location.endOffset;
     }
-    node2.sourceCodeLocation = location;
+    node.sourceCodeLocation = location;
   },
-  getNodeSourceCodeLocation(node2) {
-    return node2.sourceCodeLocation;
+  getNodeSourceCodeLocation(node) {
+    return node.sourceCodeLocation;
   },
-  updateNodeSourceCodeLocation(node2, endLocation) {
+  updateNodeSourceCodeLocation(node, endLocation) {
     if (endLocation.endOffset != null)
-      node2.endIndex = endLocation.endOffset;
-    node2.sourceCodeLocation = {
-      ...node2.sourceCodeLocation,
+      node.endIndex = endLocation.endOffset;
+    node.sourceCodeLocation = {
+      ...node.sourceCodeLocation,
       ...endLocation
     };
   }
 };
 
 // node_modules/cheerio/dist/esm/parsers/parse5-adapter.js
-function parseWithParse5(content, options, isDocument2, context) {
-  var _a4;
-  (_a4 = options.treeAdapter) !== null && _a4 !== undefined || (options.treeAdapter = adapter);
+function parseWithParse5(content, options, isDocument, context) {
+  var _a;
+  (_a = options.treeAdapter) !== null && _a !== undefined || (options.treeAdapter = adapter);
   if (options.scriptingEnabled !== false) {
     options.scriptingEnabled = true;
   }
-  return isDocument2 ? parse4(content, options) : parseFragment(context, content, options);
+  return isDocument ? parse4(content, options) : parseFragment(context, content, options);
 }
 var renderOpts = { treeAdapter: adapter };
 function renderWithParse5(dom) {
   const nodes = "length" in dom ? dom : [dom];
-  for (let index2 = 0;index2 < nodes.length; index2 += 1) {
-    const node2 = nodes[index2];
-    if (isDocument(node2)) {
-      Array.prototype.splice.call(nodes, index2, 1, ...node2.children);
+  for (let index = 0;index < nodes.length; index += 1) {
+    const node = nodes[index];
+    if (isDocument(node)) {
+      Array.prototype.splice.call(nodes, index, 1, ...node.children);
     }
   }
   let result = "";
-  for (let index2 = 0;index2 < nodes.length; index2 += 1) {
-    const node2 = nodes[index2];
-    result += serializeOuter(node2, renderOpts);
+  for (let index = 0;index < nodes.length; index += 1) {
+    const node = nodes[index];
+    result += serializeOuter(node, renderOpts);
   }
   return result;
 }
 
 // node_modules/cheerio/dist/esm/load-parse.js
-var parse5 = getParse((content, options, isDocument2, context) => options._useHtmlParser2 ? parseDocument(content, options) : parseWithParse5(content, options, isDocument2, context));
+var parse5 = getParse((content, options, isDocument, context) => options._useHtmlParser2 ? parseDocument(content, options) : parseWithParse5(content, options, isDocument, context));
 var load = getLoad(parse5, (dom, options) => options._useHtmlParser2 ? esm_default(dom, options) : renderWithParse5(dom));
 // node_modules/encoding-sniffer/dist/esm/index.js
 var import_iconv_lite = __toESM(require_lib(), 1);
@@ -17704,86 +17678,86 @@ var import_iconv_lite = __toESM(require_lib(), 1);
 // node_modules/encoding-sniffer/dist/esm/sniffer.js
 var import_whatwg_encoding = __toESM(require_whatwg_encoding(), 1);
 var State3;
-(function(State4) {
-  State4[State4["Begin"] = 0] = "Begin";
-  State4[State4["BOM16BE"] = 1] = "BOM16BE";
-  State4[State4["BOM16LE"] = 2] = "BOM16LE";
-  State4[State4["BOM8"] = 3] = "BOM8";
-  State4[State4["UTF16LE_XML_PREFIX"] = 4] = "UTF16LE_XML_PREFIX";
-  State4[State4["BeginLT"] = 5] = "BeginLT";
-  State4[State4["UTF16BE_XML_PREFIX"] = 6] = "UTF16BE_XML_PREFIX";
-  State4[State4["BeforeTag"] = 7] = "BeforeTag";
-  State4[State4["BeforeTagName"] = 8] = "BeforeTagName";
-  State4[State4["BeforeCloseTagName"] = 9] = "BeforeCloseTagName";
-  State4[State4["CommentStart"] = 10] = "CommentStart";
-  State4[State4["CommentEnd"] = 11] = "CommentEnd";
-  State4[State4["TagNameMeta"] = 12] = "TagNameMeta";
-  State4[State4["TagNameOther"] = 13] = "TagNameOther";
-  State4[State4["XMLDeclaration"] = 14] = "XMLDeclaration";
-  State4[State4["XMLDeclarationBeforeEncoding"] = 15] = "XMLDeclarationBeforeEncoding";
-  State4[State4["XMLDeclarationAfterEncoding"] = 16] = "XMLDeclarationAfterEncoding";
-  State4[State4["XMLDeclarationBeforeValue"] = 17] = "XMLDeclarationBeforeValue";
-  State4[State4["XMLDeclarationValue"] = 18] = "XMLDeclarationValue";
-  State4[State4["WeirdTag"] = 19] = "WeirdTag";
-  State4[State4["BeforeAttribute"] = 20] = "BeforeAttribute";
-  State4[State4["MetaAttribHttpEquiv"] = 21] = "MetaAttribHttpEquiv";
-  State4[State4["MetaAttribHttpEquivValue"] = 22] = "MetaAttribHttpEquivValue";
-  State4[State4["MetaAttribC"] = 23] = "MetaAttribC";
-  State4[State4["MetaAttribContent"] = 24] = "MetaAttribContent";
-  State4[State4["MetaAttribCharset"] = 25] = "MetaAttribCharset";
-  State4[State4["MetaAttribAfterName"] = 26] = "MetaAttribAfterName";
-  State4[State4["MetaContentValueQuotedBeforeEncoding"] = 27] = "MetaContentValueQuotedBeforeEncoding";
-  State4[State4["MetaContentValueQuotedAfterEncoding"] = 28] = "MetaContentValueQuotedAfterEncoding";
-  State4[State4["MetaContentValueQuotedBeforeValue"] = 29] = "MetaContentValueQuotedBeforeValue";
-  State4[State4["MetaContentValueQuotedValueQuoted"] = 30] = "MetaContentValueQuotedValueQuoted";
-  State4[State4["MetaContentValueQuotedValueUnquoted"] = 31] = "MetaContentValueQuotedValueUnquoted";
-  State4[State4["MetaContentValueUnquotedBeforeEncoding"] = 32] = "MetaContentValueUnquotedBeforeEncoding";
-  State4[State4["MetaContentValueUnquotedBeforeValue"] = 33] = "MetaContentValueUnquotedBeforeValue";
-  State4[State4["MetaContentValueUnquotedValueQuoted"] = 34] = "MetaContentValueUnquotedValueQuoted";
-  State4[State4["MetaContentValueUnquotedValueUnquoted"] = 35] = "MetaContentValueUnquotedValueUnquoted";
-  State4[State4["AnyAttribName"] = 36] = "AnyAttribName";
-  State4[State4["AfterAttributeName"] = 37] = "AfterAttributeName";
-  State4[State4["BeforeAttributeValue"] = 38] = "BeforeAttributeValue";
-  State4[State4["AttributeValueQuoted"] = 39] = "AttributeValueQuoted";
-  State4[State4["AttributeValueUnquoted"] = 40] = "AttributeValueUnquoted";
+(function(State) {
+  State[State["Begin"] = 0] = "Begin";
+  State[State["BOM16BE"] = 1] = "BOM16BE";
+  State[State["BOM16LE"] = 2] = "BOM16LE";
+  State[State["BOM8"] = 3] = "BOM8";
+  State[State["UTF16LE_XML_PREFIX"] = 4] = "UTF16LE_XML_PREFIX";
+  State[State["BeginLT"] = 5] = "BeginLT";
+  State[State["UTF16BE_XML_PREFIX"] = 6] = "UTF16BE_XML_PREFIX";
+  State[State["BeforeTag"] = 7] = "BeforeTag";
+  State[State["BeforeTagName"] = 8] = "BeforeTagName";
+  State[State["BeforeCloseTagName"] = 9] = "BeforeCloseTagName";
+  State[State["CommentStart"] = 10] = "CommentStart";
+  State[State["CommentEnd"] = 11] = "CommentEnd";
+  State[State["TagNameMeta"] = 12] = "TagNameMeta";
+  State[State["TagNameOther"] = 13] = "TagNameOther";
+  State[State["XMLDeclaration"] = 14] = "XMLDeclaration";
+  State[State["XMLDeclarationBeforeEncoding"] = 15] = "XMLDeclarationBeforeEncoding";
+  State[State["XMLDeclarationAfterEncoding"] = 16] = "XMLDeclarationAfterEncoding";
+  State[State["XMLDeclarationBeforeValue"] = 17] = "XMLDeclarationBeforeValue";
+  State[State["XMLDeclarationValue"] = 18] = "XMLDeclarationValue";
+  State[State["WeirdTag"] = 19] = "WeirdTag";
+  State[State["BeforeAttribute"] = 20] = "BeforeAttribute";
+  State[State["MetaAttribHttpEquiv"] = 21] = "MetaAttribHttpEquiv";
+  State[State["MetaAttribHttpEquivValue"] = 22] = "MetaAttribHttpEquivValue";
+  State[State["MetaAttribC"] = 23] = "MetaAttribC";
+  State[State["MetaAttribContent"] = 24] = "MetaAttribContent";
+  State[State["MetaAttribCharset"] = 25] = "MetaAttribCharset";
+  State[State["MetaAttribAfterName"] = 26] = "MetaAttribAfterName";
+  State[State["MetaContentValueQuotedBeforeEncoding"] = 27] = "MetaContentValueQuotedBeforeEncoding";
+  State[State["MetaContentValueQuotedAfterEncoding"] = 28] = "MetaContentValueQuotedAfterEncoding";
+  State[State["MetaContentValueQuotedBeforeValue"] = 29] = "MetaContentValueQuotedBeforeValue";
+  State[State["MetaContentValueQuotedValueQuoted"] = 30] = "MetaContentValueQuotedValueQuoted";
+  State[State["MetaContentValueQuotedValueUnquoted"] = 31] = "MetaContentValueQuotedValueUnquoted";
+  State[State["MetaContentValueUnquotedBeforeEncoding"] = 32] = "MetaContentValueUnquotedBeforeEncoding";
+  State[State["MetaContentValueUnquotedBeforeValue"] = 33] = "MetaContentValueUnquotedBeforeValue";
+  State[State["MetaContentValueUnquotedValueQuoted"] = 34] = "MetaContentValueUnquotedValueQuoted";
+  State[State["MetaContentValueUnquotedValueUnquoted"] = 35] = "MetaContentValueUnquotedValueUnquoted";
+  State[State["AnyAttribName"] = 36] = "AnyAttribName";
+  State[State["AfterAttributeName"] = 37] = "AfterAttributeName";
+  State[State["BeforeAttributeValue"] = 38] = "BeforeAttributeValue";
+  State[State["AttributeValueQuoted"] = 39] = "AttributeValueQuoted";
+  State[State["AttributeValueUnquoted"] = 40] = "AttributeValueUnquoted";
 })(State3 || (State3 = {}));
 var ResultType;
-(function(ResultType2) {
-  ResultType2[ResultType2["BOM"] = 0] = "BOM";
-  ResultType2[ResultType2["PASSED"] = 1] = "PASSED";
-  ResultType2[ResultType2["XML_PREFIX"] = 2] = "XML_PREFIX";
-  ResultType2[ResultType2["META_TAG"] = 3] = "META_TAG";
-  ResultType2[ResultType2["XML_ENCODING"] = 4] = "XML_ENCODING";
-  ResultType2[ResultType2["DEFAULT"] = 5] = "DEFAULT";
+(function(ResultType) {
+  ResultType[ResultType["BOM"] = 0] = "BOM";
+  ResultType[ResultType["PASSED"] = 1] = "PASSED";
+  ResultType[ResultType["XML_PREFIX"] = 2] = "XML_PREFIX";
+  ResultType[ResultType["META_TAG"] = 3] = "META_TAG";
+  ResultType[ResultType["XML_ENCODING"] = 4] = "XML_ENCODING";
+  ResultType[ResultType["DEFAULT"] = 5] = "DEFAULT";
 })(ResultType || (ResultType = {}));
 var AttribType;
-(function(AttribType2) {
-  AttribType2[AttribType2["None"] = 0] = "None";
-  AttribType2[AttribType2["HttpEquiv"] = 1] = "HttpEquiv";
-  AttribType2[AttribType2["Content"] = 2] = "Content";
-  AttribType2[AttribType2["Charset"] = 3] = "Charset";
+(function(AttribType) {
+  AttribType[AttribType["None"] = 0] = "None";
+  AttribType[AttribType["HttpEquiv"] = 1] = "HttpEquiv";
+  AttribType[AttribType["Content"] = 2] = "Content";
+  AttribType[AttribType["Charset"] = 3] = "Charset";
 })(AttribType || (AttribType = {}));
 var Chars;
-(function(Chars2) {
-  Chars2[Chars2["NIL"] = 0] = "NIL";
-  Chars2[Chars2["TAB"] = 9] = "TAB";
-  Chars2[Chars2["LF"] = 10] = "LF";
-  Chars2[Chars2["CR"] = 13] = "CR";
-  Chars2[Chars2["SPACE"] = 32] = "SPACE";
-  Chars2[Chars2["EXCLAMATION"] = 33] = "EXCLAMATION";
-  Chars2[Chars2["DQUOTE"] = 34] = "DQUOTE";
-  Chars2[Chars2["SQUOTE"] = 39] = "SQUOTE";
-  Chars2[Chars2["DASH"] = 45] = "DASH";
-  Chars2[Chars2["SLASH"] = 47] = "SLASH";
-  Chars2[Chars2["SEMICOLON"] = 59] = "SEMICOLON";
-  Chars2[Chars2["LT"] = 60] = "LT";
-  Chars2[Chars2["EQUALS"] = 61] = "EQUALS";
-  Chars2[Chars2["GT"] = 62] = "GT";
-  Chars2[Chars2["QUESTION"] = 63] = "QUESTION";
-  Chars2[Chars2["UpperA"] = 65] = "UpperA";
-  Chars2[Chars2["UpperZ"] = 90] = "UpperZ";
-  Chars2[Chars2["LowerA"] = 97] = "LowerA";
-  Chars2[Chars2["LowerZ"] = 122] = "LowerZ";
+(function(Chars) {
+  Chars[Chars["NIL"] = 0] = "NIL";
+  Chars[Chars["TAB"] = 9] = "TAB";
+  Chars[Chars["LF"] = 10] = "LF";
+  Chars[Chars["CR"] = 13] = "CR";
+  Chars[Chars["SPACE"] = 32] = "SPACE";
+  Chars[Chars["EXCLAMATION"] = 33] = "EXCLAMATION";
+  Chars[Chars["DQUOTE"] = 34] = "DQUOTE";
+  Chars[Chars["SQUOTE"] = 39] = "SQUOTE";
+  Chars[Chars["DASH"] = 45] = "DASH";
+  Chars[Chars["SLASH"] = 47] = "SLASH";
+  Chars[Chars["SEMICOLON"] = 59] = "SEMICOLON";
+  Chars[Chars["LT"] = 60] = "LT";
+  Chars[Chars["EQUALS"] = 61] = "EQUALS";
+  Chars[Chars["GT"] = 62] = "GT";
+  Chars[Chars["QUESTION"] = 63] = "QUESTION";
+  Chars[Chars["UpperA"] = 65] = "UpperA";
+  Chars[Chars["UpperZ"] = 90] = "UpperZ";
+  Chars[Chars["LowerA"] = 97] = "LowerA";
+  Chars[Chars["LowerZ"] = 122] = "LowerZ";
 })(Chars || (Chars = {}));
 var SPACE_CHARACTERS = new Set([Chars.SPACE, Chars.LF, Chars.CR, Chars.TAB]);
 var END_OF_UNQUOTED_ATTRIBUTE_VALUE = new Set([
@@ -18023,12 +17997,12 @@ function countDocuments(status, tag) {
   const row = db.prepare(`SELECT COUNT(*) AS n FROM documents ${whereSql}`).get(...params);
   return Number(row.n);
 }
-function saveSnapshot(documentId, html3, contentType) {
+function saveSnapshot(documentId, html, contentType) {
   db.run(`INSERT INTO snapshots (document_id, content_type, html, bytes)
      VALUES (?, ?, ?, ?)
      ON CONFLICT(document_id) DO UPDATE SET
        content_type = excluded.content_type, html = excluded.html,
-       bytes = excluded.bytes, fetched_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`, [documentId, contentType, html3, Buffer.byteLength(html3)]);
+       bytes = excluded.bytes, fetched_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`, [documentId, contentType, html, Buffer.byteLength(html)]);
 }
 function getSnapshot(documentId) {
   return db.prepare("SELECT html, content_type FROM snapshots WHERE document_id = ?").get(documentId) ?? null;
@@ -18162,10 +18136,10 @@ function concat(chunks, total) {
 function pickAuthor(jsonld) {
   for (const item of jsonld) {
     const nodes = Array.isArray(item) ? item : [item];
-    for (const node2 of nodes) {
-      const raw = node2?.author;
-      const first2 = Array.isArray(raw) ? raw[0] : raw;
-      const name = typeof first2 === "string" ? first2 : first2?.name;
+    for (const node of nodes) {
+      const raw = node?.author;
+      const first = Array.isArray(raw) ? raw[0] : raw;
+      const name = typeof first === "string" ? first : first?.name;
       if (typeof name === "string" && name.trim())
         return name.trim();
     }
@@ -18211,53 +18185,53 @@ async function fetchAndExtract(url, timeoutMs, maxBytes) {
       }
     }
   }
-  const html3 = decodeBody(concat(chunks, total), contentType);
-  const $2 = load(html3);
+  const html = decodeBody(concat(chunks, total), contentType);
+  const $ = load(html);
   const metas = {};
-  $2("meta").each((_, el) => {
-    const key = $2(el).attr("name") ?? $2(el).attr("property") ?? $2(el).attr("itemprop");
-    const value = $2(el).attr("content");
+  $("meta").each((_, el) => {
+    const key = $(el).attr("name") ?? $(el).attr("property") ?? $(el).attr("itemprop");
+    const value = $(el).attr("content");
     if (key && value && !(key in metas))
       metas[key] = value;
   });
   const linkRels = {};
-  $2("link[rel]").each((_, el) => {
-    const rel = $2(el).attr("rel")?.toLowerCase().split(/\s+/)[0];
-    const href = $2(el).attr("href");
+  $("link[rel]").each((_, el) => {
+    const rel = $(el).attr("rel")?.toLowerCase().split(/\s+/)[0];
+    const href = $(el).attr("href");
     if (rel && href && !(rel in linkRels))
       linkRels[rel] = href;
   });
   const jsonld = [];
-  $2('script[type="application/ld+json"]').each((_, el) => {
+  $('script[type="application/ld+json"]').each((_, el) => {
     try {
-      jsonld.push(JSON.parse($2(el).text()));
+      jsonld.push(JSON.parse($(el).text()));
     } catch {}
   });
-  $2("script, style, noscript, template, svg, iframe, frame, object, embed, form, button, " + "nav, header, footer, aside, " + "[role='navigation'], [role='banner'], [role='contentinfo'], [role='complementary'], " + "[aria-hidden='true'], [hidden]").remove();
-  const root2 = $2("article").first().length || $2("main").first().length || $2("[role='main']").first().length ? $2("article").first().length ? $2("article").first() : $2("main").first().length ? $2("main").first() : $2("[role='main']").first() : $2("body");
-  $2("br").replaceWith(`
+  $("script, style, noscript, template, svg, iframe, frame, object, embed, form, button, " + "nav, header, footer, aside, " + "[role='navigation'], [role='banner'], [role='contentinfo'], [role='complementary'], " + "[aria-hidden='true'], [hidden]").remove();
+  const root = $("article").first().length || $("main").first().length || $("[role='main']").first().length ? $("article").first().length ? $("article").first() : $("main").first().length ? $("main").first() : $("[role='main']").first() : $("body");
+  $("br").replaceWith(`
 `);
-  $2("p, div, section, article, li, tr, dt, dd, h1, h2, h3, h4, h5, h6, " + "blockquote, pre, figcaption, td, th, caption, label, summary").append(`
+  $("p, div, section, article, li, tr, dt, dd, h1, h2, h3, h4, h5, h6, " + "blockquote, pre, figcaption, td, th, caption, label, summary").append(`
 `);
-  let text3 = root2.text() || $2("body").text() || "";
-  text3 = text3.replace(/\r/g, "").replace(/[\t\f\v ]+/g, " ").replace(/ ?\n ?/g, `
+  let text = root.text() || $("body").text() || "";
+  text = text.replace(/\r/g, "").replace(/[\t\f\v ]+/g, " ").replace(/ ?\n ?/g, `
 `).replace(/\n{3,}/g, `
 
 `).trim().slice(0, MAX_CONTENT_CHARS);
-  const title = metas["og:title"] ?? metas["twitter:title"] ?? ($2("title").first().text().trim() || null) ?? ($2("h1").first().text().trim() || null);
+  const title = metas["og:title"] ?? metas["twitter:title"] ?? ($("title").first().text().trim() || null) ?? ($("h1").first().text().trim() || null);
   const description = metas["og:description"] ?? metas["twitter:description"] ?? metas["description"] ?? null;
   const author = metas["author"] ?? metas["article:author"] ?? pickAuthor(jsonld);
-  const wordCount = text3.split(/\s+/).filter(Boolean).length;
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
   return {
     title,
     description,
     author,
     siteName: metas["og:site_name"] ?? new URL(url).hostname,
-    lang: $2("html").attr("lang") ?? null,
+    lang: $("html").attr("lang") ?? null,
     canonicalUrl: absolute(url, linkRels["canonical"] ?? metas["og:url"]),
     image: absolute(url, metas["og:image"] ?? metas["twitter:image"]),
-    content: text3,
-    html: html3.slice(0, 5000000),
+    content: text,
+    html: html.slice(0, 5000000),
     wordCount,
     readingMinutes: Math.max(1, Math.ceil(wordCount / 200)),
     contentType,
@@ -18342,6 +18316,47 @@ function stopWorker() {
   timer = null;
 }
 
+// src/notify.ts
+var NTFY_URL = (process.env.NTFY_URL ?? "https://ntfy.sh").replace(/\/+$/, "");
+var NTFY_TOPIC = process.env.NTFY_TOPIC?.trim() || null;
+var NTFY_TOKEN = process.env.NTFY_TOKEN?.trim() || null;
+var NTFY_TIMEOUT_MS = 1e4;
+function ntfyEnabled() {
+  return NTFY_TOPIC !== null;
+}
+async function sendNotification(n) {
+  if (!NTFY_TOPIC)
+    return { sent: false, reason: "ntfy not configured (NTFY_TOPIC unset)" };
+  const headers = {
+    "content-type": "text/plain; charset=utf-8",
+    Title: n.title ?? "OTG-BOT",
+    Priority: String(Math.min(5, Math.max(1, Math.round(n.priority ?? 3))))
+  };
+  if (n.tags?.length)
+    headers.Tags = n.tags.join(",");
+  if (n.click)
+    headers.Click = n.click;
+  if (NTFY_TOKEN)
+    headers.Authorization = `Bearer ${NTFY_TOKEN}`;
+  const res = await fetch(`${NTFY_URL}/${encodeURIComponent(NTFY_TOPIC)}`, {
+    method: "POST",
+    headers,
+    body: n.message,
+    signal: AbortSignal.timeout(NTFY_TIMEOUT_MS)
+  });
+  if (!res.ok) {
+    const detail = (await res.text().catch(() => "")).slice(0, 200);
+    throw new Error(`ntfy publish failed: HTTP ${res.status}${detail ? ` \u2014 ${detail}` : ""}`);
+  }
+  console.log(`[ntfy] published to ${NTFY_TOPIC}`);
+  return { sent: true };
+}
+function notify(n) {
+  sendNotification(n).catch((err) => {
+    console.error(`[ntfy] ${err.message}`);
+  });
+}
+
 // src/feeds.ts
 var FETCH_TIMEOUT_MS2 = 20000;
 var TICK_MS = 60000;
@@ -18362,9 +18377,9 @@ function normalizeUrl(input) {
     return null;
   }
 }
-function parseFeedXml(xml2) {
-  const $2 = load(xml2, { xmlMode: true });
-  const title = $2("rss > channel > title").first().text().trim() || $2("feed > title").first().text().trim() || null;
+function parseFeedXml(xml) {
+  const $ = load(xml, { xmlMode: true });
+  const title = $("rss > channel > title").first().text().trim() || $("feed > title").first().text().trim() || null;
   const links = [];
   const push = (raw) => {
     if (!raw)
@@ -18373,14 +18388,14 @@ function parseFeedXml(xml2) {
     if (href && !links.includes(href) && links.length < MAX_ITEMS_PER_POLL)
       links.push(href);
   };
-  $2("item").each((_, item) => {
-    const $item = $2(item);
+  $("item").each((_, item) => {
+    const $item = $(item);
     const guid = $item.children("guid").first().text().trim();
     push($item.children("link").first().text().trim() || $item.attr("rdf:about") || guid);
   });
-  $2("entry").each((_, entry) => {
-    const $entry = $2(entry);
-    const alt = $entry.children("link").filter((_2, l) => ($2(l).attr("rel") ?? "alternate") === "alternate").first().attr("href");
+  $("entry").each((_, entry) => {
+    const $entry = $(entry);
+    const alt = $entry.children("link").filter((_, l) => ($(l).attr("rel") ?? "alternate") === "alternate").first().attr("href");
     push(alt ?? $entry.children("link").first().attr("href") ?? $entry.children("id").first().text());
   });
   return { title, links };
@@ -18406,8 +18421,8 @@ async function pollFeed(feed) {
       markFeedChecked(feed.id, "error", { error: msg });
       return { ingested: 0, status: "error" };
     }
-    const xml2 = await res.text();
-    const { title, links } = parseFeedXml(xml2);
+    const xml = await res.text();
+    const { title, links } = parseFeedXml(xml);
     let ingested = 0;
     for (const link of links) {
       const isNew = insertIgnoreByUrl(link);
@@ -18437,14 +18452,28 @@ async function pollFeed(feed) {
 async function pollAllFeeds() {
   polling = true;
   try {
-    const feeds2 = enabledFeeds();
+    const feeds = enabledFeeds();
     let total = 0;
-    for (const feed of feeds2) {
+    const perFeed = [];
+    for (const feed of feeds) {
       const r = await pollFeed(feed);
       total += r.ingested;
+      if (r.ingested > 0) {
+        perFeed.push({ name: (feed.title ?? feed.url).slice(0, 60), ingested: r.ingested });
+      }
     }
-    if (feeds2.length > 0) {
-      console.log(`[feeds] checked ${feeds2.length} feed(s), ${total} new item(s)`);
+    if (feeds.length > 0) {
+      console.log(`[feeds] checked ${feeds.length} feed(s), ${total} new item(s)`);
+    }
+    if (total > 0) {
+      const lines = perFeed.map((f) => `\u2022 ${f.name}: ${f.ingested}`);
+      notify({
+        title: "OTG-BOT",
+        message: `${total} new item(s)
+${lines.join(`
+`)}`.slice(0, 1000),
+        tags: ["newspaper"]
+      });
     }
   } finally {
     polling = false;
@@ -19073,7 +19102,7 @@ setInterval(refreshStatus, 30000);
 // src/index.ts
 var PORT = Number(process.env.SERVER_PORT ?? process.env.PORT ?? 3000);
 var INGEST_TOKEN = process.env.INGEST_TOKEN || null;
-var VERSION = "1.1.0";
+var VERSION = "1.2.0";
 var MAX_BATCH = 25;
 var MAX_IMPORT = 1e4;
 var SKIP_FOLDERS = new Set([
@@ -19097,8 +19126,8 @@ var CORS = {
   "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "access-control-allow-headers": "content-type, authorization"
 };
-function json(data2, status = 200) {
-  return new Response(JSON.stringify(data2, null, 2) + `
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data, null, 2) + `
 `, {
     status,
     headers: { "content-type": "application/json; charset=utf-8", ...CORS }
@@ -19145,11 +19174,11 @@ function escapeAttr(s) {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 async function readJson(req) {
-  const data2 = await req.json();
-  if (!data2 || typeof data2 !== "object" || Array.isArray(data2)) {
+  const data = await req.json();
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
     throw new HttpError(400, "expected a JSON object");
   }
-  return data2;
+  return data;
 }
 function saveUrls(urls, tags) {
   const queued = [];
@@ -19221,8 +19250,8 @@ async function handleIngest(req, url) {
     overflowSkipped: unique.length - batch.length
   }, 202);
 }
-function parseBookmarks(html3) {
-  const $2 = load(html3);
+function parseBookmarks(html) {
+  const $ = load(html);
   const folderName = ($dl) => {
     const candidates = [
       $dl.prev("h3"),
@@ -19237,14 +19266,14 @@ function parseBookmarks(html3) {
     return "";
   };
   const out = [];
-  $2("a[href]").each((_, el) => {
+  $("a[href]").each((_, el) => {
     const tags = [];
-    $2(el).parents("dl").each((_2, dl) => {
-      const folder = folderName($2(dl));
+    $(el).parents("dl").each((_, dl) => {
+      const folder = folderName($(dl));
       if (folder && !SKIP_FOLDERS.has(folder))
         tags.push(folder);
     });
-    out.push({ url: $2(el).attr("href") ?? "", tags: [...new Set(tags)] });
+    out.push({ url: $(el).attr("href") ?? "", tags: [...new Set(tags)] });
   });
   return out;
 }
@@ -19315,8 +19344,8 @@ function serveSnapshot(id) {
     });
   }
   const base = `<base href="${escapeAttr(doc.url)}">`;
-  const html3 = /<head[^>]*>/i.test(snap.html) ? snap.html.replace(/<head([^>]*)>/i, (_, attrs) => `<head${attrs}>${base}`) : base + snap.html;
-  return new Response(html3, {
+  const html = /<head[^>]*>/i.test(snap.html) ? snap.html.replace(/<head([^>]*)>/i, (_, attrs) => `<head${attrs}>${base}`) : base + snap.html;
+  return new Response(html, {
     headers: { ...headers, "content-type": "text/html; charset=utf-8" }
   });
 }
@@ -19347,18 +19376,19 @@ var RE = {
   docNotes: /^\/documents\/(\d+)\/notes$/,
   docNote: /^\/documents\/(\d+)\/notes\/(\d+)$/,
   feed: /^\/feeds\/(\d+)$/,
-  feedCheck: /^\/feeds\/(\d+)\/check$/
+  feedCheck: /^\/feeds\/(\d+)\/check$/,
+  notifyTest: /^\/notify\/test$/
 };
 async function route(req) {
   const url = new URL(req.url);
-  const path2 = url.pathname.replace(/\/+$/, "") || "/";
+  const path = url.pathname.replace(/\/+$/, "") || "/";
   const method = req.method;
   if (method === "OPTIONS")
     return new Response(null, { status: 204, headers: CORS });
   const isWrite = method !== "GET" && method !== "HEAD";
   if (isWrite && !authorized(req, url))
     return json({ error: "unauthorized" }, 401);
-  if (path2 === "/" && method === "GET") {
+  if (path === "/" && method === "GET") {
     return new Response(ui_default, {
       headers: {
         "content-type": "text/html; charset=utf-8",
@@ -19367,7 +19397,7 @@ async function route(req) {
       }
     });
   }
-  if (path2 === "/api" && method === "GET") {
+  if (path === "/api" && method === "GET") {
     const counts = stmts.statusCounts.all();
     return json({
       service: "otg-bot",
@@ -19393,22 +19423,23 @@ async function route(req) {
         "DELETE /feeds/:id": "remove a feed",
         "GET    /settings": "runtime settings",
         "PUT    /settings": "update settings (feed_poll_minutes, feeds_enabled, snapshots)",
-        "GET    /queue": "worker queue statistics"
+        "GET    /queue": "worker queue statistics",
+        "POST   /notify/test": "send a test ntfy notification (needs NTFY_TOPIC)"
       },
       documents: Object.fromEntries(counts.map((c) => [c.status, c.n])),
       writes: INGEST_TOKEN ? "token required" : "open"
     });
   }
-  if (path2 === "/health" && method === "GET") {
+  if (path === "/health" && method === "GET") {
     return json({ ok: true, version: VERSION, uptimeSeconds: Math.round((Date.now() - startedAt) / 1000) });
   }
-  if (path2 === "/ingest" && (method === "POST" || method === "GET")) {
+  if (path === "/ingest" && (method === "POST" || method === "GET")) {
     return handleIngest(req, url);
   }
-  if (path2 === "/import/bookmarks" && method === "POST") {
+  if (path === "/import/bookmarks" && method === "POST") {
     return handleImport(req);
   }
-  if (path2 === "/documents" && method === "GET") {
+  if (path === "/documents" && method === "GET") {
     const limit = clamp(Number(url.searchParams.get("limit") ?? 25) || 25, 1, 100);
     const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0) || 0);
     const status = url.searchParams.get("status") || null;
@@ -19420,7 +19451,7 @@ async function route(req) {
       documents: listDocuments(status, tag, limit, offset)
     });
   }
-  let m = RE.doc.exec(path2);
+  let m = RE.doc.exec(path);
   if (m) {
     const id = Number(m[1]);
     if (method === "GET") {
@@ -19432,10 +19463,10 @@ async function route(req) {
     }
     return json({ error: "method not allowed" }, 405);
   }
-  m = RE.docRaw.exec(path2);
+  m = RE.docRaw.exec(path);
   if (m && method === "GET")
     return serveSnapshot(Number(m[1]));
-  m = RE.docTags.exec(path2);
+  m = RE.docTags.exec(path);
   if (m && method === "POST") {
     const id = Number(m[1]);
     if (!stmts.getById.get(id))
@@ -19443,7 +19474,7 @@ async function route(req) {
     const body = await readJson(req);
     return json({ tags: setTags(id, splitTags(body.tags)) });
   }
-  m = RE.docNotes.exec(path2);
+  m = RE.docNotes.exec(path);
   if (m && method === "POST") {
     const id = Number(m[1]);
     if (!stmts.getById.get(id))
@@ -19454,12 +19485,12 @@ async function route(req) {
       throw new HttpError(400, "note is required");
     return json(addNote(id, note), 201);
   }
-  m = RE.docNote.exec(path2);
+  m = RE.docNote.exec(path);
   if (m && method === "DELETE") {
     const ok = deleteNote(Number(m[1]), Number(m[2]));
     return ok ? json({ deleted: Number(m[2]) }) : json({ error: "note not found" }, 404);
   }
-  if (path2 === "/search" && method === "GET") {
+  if (path === "/search" && method === "GET") {
     const q = (url.searchParams.get("q") ?? "").trim();
     const tokens = q.match(/[\p{L}\p{N}_]+/gu) ?? [];
     if (tokens.length === 0)
@@ -19475,10 +19506,10 @@ async function route(req) {
       return json({ error: "search failed", query: q }, 400);
     }
   }
-  if (path2 === "/feeds" && method === "GET") {
+  if (path === "/feeds" && method === "GET") {
     return json(listFeeds().map((f) => ({ ...f, enabled: !!f.enabled })));
   }
-  if (path2 === "/feeds" && method === "POST") {
+  if (path === "/feeds" && method === "POST") {
     const body = await readJson(req);
     const feedUrl = normalizeUrl2(body.url);
     if (!feedUrl)
@@ -19489,12 +19520,12 @@ async function route(req) {
     checkFeedNow(feed.id).catch(() => {});
     return json({ ...feed, enabled: !!feed.enabled }, 201);
   }
-  m = RE.feedCheck.exec(path2);
+  m = RE.feedCheck.exec(path);
   if (m && method === "POST") {
     const result = await checkFeedNow(Number(m[1]));
     return result ? json(result) : json({ error: "feed not found" }, 404);
   }
-  m = RE.feed.exec(path2);
+  m = RE.feed.exec(path);
   if (m) {
     const id = Number(m[1]);
     const feed = getFeed2(id);
@@ -19513,21 +19544,36 @@ async function route(req) {
     }
     return json({ error: "method not allowed" }, 405);
   }
-  if (path2 === "/settings" && method === "GET") {
+  if (path === "/settings" && method === "GET") {
     return json(getSettings());
   }
-  if (path2 === "/settings" && method === "PUT") {
+  if (path === "/settings" && method === "PUT") {
     const updates = validateSettings(await readJson(req));
     for (const [key, value] of Object.entries(updates))
       setSetting(key, value);
     return json(getSettings());
   }
-  if (path2 === "/queue" && method === "GET") {
+  if (path === "/queue" && method === "GET") {
     const counts = stmts.statusCounts.all();
     return json({
       byStatus: Object.fromEntries(counts.map((c) => [c.status, c.n])),
       recentErrors: stmts.recentErrors.all()
     });
+  }
+  if (RE.notifyTest.exec(path) && method === "POST") {
+    if (!ntfyEnabled()) {
+      return json({ sent: false, error: "ntfy not configured \u2014 set NTFY_TOPIC" }, 503);
+    }
+    try {
+      await sendNotification({
+        title: "OTG-BOT",
+        message: "Test notification \u2014 ntfy is wired up.",
+        tags: ["white_check_mark"]
+      });
+      return json({ sent: true, url: process.env.NTFY_URL ?? "https://ntfy.sh" });
+    } catch (err) {
+      return json({ sent: false, error: err.message }, 502);
+    }
   }
   return json({ error: "not found" }, 404);
 }

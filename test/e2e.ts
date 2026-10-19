@@ -50,7 +50,7 @@ const readyDoc = (url: string) =>
 // ---------------------------------------------------------------- service & UI
 {
   const h = await call("/health");
-  check("health ok + version 1.1.0", h.data.ok === true && h.data.version === "1.1.0", h.data);
+  check("health ok + version 1.2.0", h.data.ok === true && h.data.version === "1.2.0", h.data);
 
   const ui = await call("/");
   check("GET / serves UI html", ui.status === 200 && String(ui.data).includes("OTG-BOT"), ui.status);
@@ -227,6 +227,30 @@ let brokenId = 0;
   check("deleted doc → 404", (await call(`/documents/${d.id}`)).status === 404);
   const fts = await call(`/search?q=token-a7`);
   check("deleted doc removed from FTS", fts.data.results?.length === 0, fts.data);
+}
+
+// ---------------------------------------------------------------- ntfy notifications
+// Requires the app under test to run with NTFY_TOPIC=otg-test and
+// NTFY_URL=<fixtures base>/ntfy (publishes land on /ntfy/<topic>).
+{
+  const captured = async () =>
+    (await fetch(`${FIX}/__ntfy-posts`).then((r) => r.json())) as any[];
+  const before = (await captured()).length;
+
+  const t = await call("/notify/test", { method: "POST" });
+  check("notify/test 200 sent", t.status === 200 && t.data.sent === true, t.data);
+
+  const posts = await waitFor(async () => {
+    const all = await captured();
+    return all.length > before ? all : null;
+  }, 8000);
+  const last = posts?.[posts.length - 1];
+  check(
+    "ntfy publish captured",
+    !!last && last.topic === "otg-test" && last.body.includes("Test notification"),
+    last,
+  );
+  check("ntfy Title header", last?.headers?.title === "OTG-BOT", last?.headers);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed`);

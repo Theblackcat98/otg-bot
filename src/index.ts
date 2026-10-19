@@ -1,10 +1,11 @@
 /**
- * OTG-BOT — URL keeper pipeline (v1.1.0).
+ * OTG-BOT — URL keeper pipeline (v1.2.0).
  *
  *   Ingestion API  : save URLs, import bookmarks, RSS/Atom feed watcher
  *   Scraper worker : fetches pages, extracts clean text + metadata (Cheerio)
  *   Embedded store : bun:sqlite — content, snapshots, tags, notes, FTS5 index
  *   Web UI         : served at /
+ *   Notifications  : ntfy.sh push when the feed watcher finds new items
  *
  * Start: bun run dist/index.js   (dev: bun run src/index.ts)
  */
@@ -37,13 +38,14 @@ import {
   stmts,
 } from "./db";
 import { checkFeedNow, startFeeds, stopFeeds } from "./feeds";
+import { ntfyEnabled, sendNotification } from "./notify";
 import UI_HTML from "./ui.html" with { type: "text" };
 import { kick, startWorker, stopWorker } from "./worker";
 
 // Botkeep exposes the allocated public port as SERVER_PORT; PORT is a generic fallback.
 const PORT = Number(process.env.SERVER_PORT ?? process.env.PORT ?? 3000);
 const INGEST_TOKEN = process.env.INGEST_TOKEN || null;
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 const MAX_BATCH = 25;
 const MAX_IMPORT = 10_000;
 const SKIP_FOLDERS = new Set([
@@ -355,6 +357,7 @@ const RE = {
   docNote: /^\/documents\/(\d+)\/notes\/(\d+)$/,
   feed: /^\/feeds\/(\d+)$/,
   feedCheck: /^\/feeds\/(\d+)\/check$/,
+  notifyTest: /^\/notify\/test$/,
 };
 
 async function route(req: Request): Promise<Response> {
@@ -406,6 +409,7 @@ async function route(req: Request): Promise<Response> {
         "GET    /settings": "runtime settings",
         "PUT    /settings": "update settings (feed_poll_minutes, feeds_enabled, snapshots)",
         "GET    /queue": "worker queue statistics",
+        "POST   /notify/test": "send a test ntfy notification (needs NTFY_TOPIC)",
       },
       documents: Object.fromEntries(counts.map((c) => [c.status, c.n])),
       writes: INGEST_TOKEN ? "token required" : "open",
@@ -553,6 +557,23 @@ async function route(req: Request): Promise<Response> {
       byStatus: Object.fromEntries(counts.map((c) => [c.status, c.n])),
       recentErrors: stmts.recentErrors.all(),
     });
+  }
+
+  // ---- ntfy notifications
+  if (RE.notifyTest.exec(path) && method === "POST") {
+    if (!ntfyEnabled()) {
+      return json({ sent: false, error: "ntfy not configured — set NTFY_TOPIC" }, 503);
+    }
+    try {
+      await sendNotification({
+        title: "OTG-BOT",
+        message: "Test notification — ntfy is wired up.",
+        tags: ["white_check_mark"],
+      });
+      return json({ sent: true, url: process.env.NTFY_URL ?? "https://ntfy.sh" });
+    } catch (err) {
+      return json({ sent: false, error: (err as Error).message }, 502);
+    }
   }
 
   return json({ error: "not found" }, 404);

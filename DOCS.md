@@ -311,7 +311,7 @@ authenticating proxy.
 ## 11. Monitor
 
 ```sh
-curl $BASE/health      # {"ok": true, "version": "1.1.0", "uptimeSeconds": 4210}
+curl $BASE/health      # {"ok": true, "version": "1.2.0", "uptimeSeconds": 4210}
 curl $BASE/queue       # counts by status + the last 10 errors with reasons
 curl $BASE/api         # endpoint map, version, document counts
 ```
@@ -344,6 +344,7 @@ curl $BASE/api         # endpoint map, version, document counts
 | GET | `/settings` | | 200 | |
 | PUT | `/settings` | any of the keys in §9 | 200 | |
 | GET | `/queue` | | 200 | |
+| POST | `/notify/test` | | 200 `{sent}` | Needs `NTFY_TOPIC`; token if set |
 
 ---
 
@@ -377,4 +378,41 @@ Runtime settings (§9) do not need a restart.
 | `MAX_BYTES` | `5000000` | Maximum HTML per page |
 | `MAX_ATTEMPTS` | `3` | Tries before a page is marked `error` |
 | `SNAPSHOTS` | `1` | `0` disables snapshot storage |
+| `NTFY_TOPIC` | *(unset)* | ntfy topic for push notifications; unset = disabled |
+| `NTFY_URL` | `https://ntfy.sh` | ntfy server (self-hosted or paid tiers) |
+| `NTFY_TOKEN` | *(unset)* | Bearer token when the ntfy server requires auth |
 | `USER_AGENT` | `OTGBot/1.0` | Sent with page and feed requests |
+
+---
+
+## 15. Push notifications (ntfy)
+
+otg-bot can push to your phone via [ntfy](https://ntfy.sh) — a simple
+HTTP-based pub/sub notification service with free Android/iOS apps.
+
+**Setup**
+
+1. Install the ntfy app and subscribe to a topic. Pick a hard-to-guess name —
+   anyone who guesses a public ntfy.sh topic can read it (e.g. `otg-x7q2m9`).
+2. Set `NTFY_TOPIC=<your-topic>` in Botkeep → OTG-BOT → **Environment**, then restart.
+   `NTFY_URL` (default `https://ntfy.sh`) and `NTFY_TOKEN` (bearer auth for
+   self-hosted or paid tiers) are optional.
+3. Verify:
+
+   ```sh
+   curl -X POST $BASE/notify/test        # 200 {"sent": true, ...}
+   ```
+
+**What you get notified about**
+
+When a feed poll ingests new items, one digest goes out per poll:
+
+```
+3 new items
+• Test RSS: 2
+• Test Atom: 1
+```
+
+Notifications are fire-and-forget: a failed publish is logged and never breaks
+ingestion or the worker. If `NTFY_TOPIC` is unset, `POST /notify/test` returns
+503 and no notifications are sent.
