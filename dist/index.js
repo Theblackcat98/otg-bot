@@ -17883,6 +17883,20 @@ CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- ntfy-compatible push server: cached messages per topic
+CREATE TABLE IF NOT EXISTS ntfy_messages (
+  seq      INTEGER PRIMARY KEY AUTOINCREMENT, -- total publish order
+  id       TEXT NOT NULL UNIQUE,              -- public message id
+  topic    TEXT NOT NULL,
+  time     INTEGER NOT NULL, -- unix seconds
+  message  TEXT NOT NULL,
+  title    TEXT,
+  priority INTEGER NOT NULL DEFAULT 3,
+  tags     TEXT,             -- comma-separated emoji aliases
+  click    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ntfy_topic_seq ON ntfy_messages(topic, seq);
 `);
 var NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 function indexDocument(d) {
@@ -18086,6 +18100,24 @@ function getSettings() {
       out[row.key] = row.value;
   }
   return out;
+}
+var NTFY_CACHE_PER_TOPIC = 200;
+function saveNtfyMessage(m) {
+  db.run(`INSERT INTO ntfy_messages (id, topic, time, message, title, priority, tags, click)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [m.id, m.topic, m.time, m.message, m.title, m.priority, m.tags, m.click]);
+  db.run(`DELETE FROM ntfy_messages WHERE topic = ? AND seq NOT IN (
+       SELECT seq FROM ntfy_messages WHERE topic = ? ORDER BY seq DESC LIMIT ?
+     )`, [m.topic, m.topic, NTFY_CACHE_PER_TOPIC]);
+}
+function listNtfyMessages(topic, sinceId) {
+  let rows;
+  if (sinceId && sinceId !== "all") {
+    const anchor = db.prepare("SELECT seq FROM ntfy_messages WHERE id = ? AND topic = ?").get(sinceId, topic);
+    rows = anchor ? db.prepare("SELECT id, topic, time, message, title, priority, tags, click FROM ntfy_messages WHERE topic = ? AND seq > ? ORDER BY seq ASC LIMIT ?").all(topic, anchor.seq, NTFY_CACHE_PER_TOPIC) : [];
+  } else {
+    rows = db.prepare("SELECT id, topic, time, message, title, priority, tags, click FROM ntfy_messages WHERE topic = ? ORDER BY seq ASC LIMIT ?").all(topic, NTFY_CACHE_PER_TOPIC);
+  }
+  return rows;
 }
 
 // src/scraper.ts
@@ -18316,14 +18348,14 @@ function stopWorker() {
   timer = null;
 }
 
+// src/ntfy.ts
+import { randomBytes } from "crypto";
+
 // src/notify.ts
 var NTFY_URL = (process.env.NTFY_URL ?? "https://ntfy.sh").replace(/\/+$/, "");
 var NTFY_TOPIC = process.env.NTFY_TOPIC?.trim() || null;
 var NTFY_TOKEN = process.env.NTFY_TOKEN?.trim() || null;
 var NTFY_TIMEOUT_MS = 1e4;
-function ntfyEnabled() {
-  return NTFY_TOPIC !== null;
-}
 async function sendNotification(n) {
   if (!NTFY_TOPIC)
     return { sent: false, reason: "ntfy not configured (NTFY_TOPIC unset)" };
@@ -18351,9 +18383,212 @@ async function sendNotification(n) {
   console.log(`[ntfy] published to ${NTFY_TOPIC}`);
   return { sent: true };
 }
-function notify(n) {
-  sendNotification(n).catch((err) => {
-    console.error(`[ntfy] ${err.message}`);
+
+// src/ntfy.ts
+var NTFY_LOCAL_TOPIC = process.env.NTFY_LOCAL_TOPIC?.trim() || "otg";
+var TOPIC_RE = /^[A-Za-z0-9_\-@.]{1,64}$/;
+var MAX_MESSAGE_BYTES = 65536;
+var KEEPALIVE_MS = 30000;
+function newId() {
+  return randomBytes(9).toString("base64url");
+}
+function nowSec() {
+  return Math.floor(Date.now() / 1000);
+}
+function toWire(m) {
+  const out = {
+    id: m.id,
+    time: m.time,
+    event: "message",
+    topic: m.topic,
+    message: m.message,
+    priority: m.priority
+  };
+  if (m.title)
+    out.title = m.title;
+  if (m.tags)
+    out.tags = m.tags.split(",");
+  if (m.click)
+    out.click = m.click;
+  return out;
+}
+function parsePriority(raw) {
+  if (!raw)
+    return 3;
+  const n = Number(raw);
+  if (Number.isInteger(n) && n >= 1 && n <= 5)
+    return n;
+  const names = { min: 1, low: 2, default: 3, high: 4, urgent: 5, max: 5 };
+  return names[String(raw).toLowerCase()] ?? 3;
+}
+function parseTags(raw) {
+  if (!raw)
+    return [];
+  return raw.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 16);
+}
+var subscribers = new Map;
+function encode(format, m) {
+  if (format === "json")
+    return JSON.stringify(toWire(m)) + `
+`;
+  if (format === "raw")
+    return m.message + `
+`;
+  return `id: ${m.id}
+event: message
+data: ${JSON.stringify(toWire(m))}
+
+`;
+}
+function publishMessage(topic, input) {
+  if (!TOPIC_RE.test(topic))
+    throw new Error(`invalid topic: ${topic}`);
+  const m = {
+    id: newId(),
+    topic,
+    time: nowSec(),
+    message: input.message,
+    title: input.title ?? null,
+    priority: Math.min(5, Math.max(1, Math.round(input.priority ?? 3))),
+    tags: input.tags?.length ? input.tags.join(",") : null,
+    click: input.click ?? null
+  };
+  saveNtfyMessage(m);
+  const subs = subscribers.get(topic);
+  if (subs?.size) {
+    const encoded = new Map;
+    for (const s of [...subs]) {
+      try {
+        let chunk = encoded.get(s.format);
+        if (!chunk) {
+          chunk = encode(s.format, m);
+          encoded.set(s.format, chunk);
+        }
+        s.push(chunk);
+      } catch {
+        subs.delete(s);
+      }
+    }
+  }
+  sendNotification({
+    title: m.title ?? undefined,
+    message: m.message,
+    priority: m.priority,
+    tags: m.tags ? m.tags.split(",") : undefined,
+    click: m.click ?? undefined
+  }).catch((err) => {
+    console.error(`[ntfy] relay failed: ${err.message}`);
+  });
+  console.log(`[ntfy] published to local topic "${topic}"`);
+  return m;
+}
+var CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  "access-control-allow-headers": "content-type, authorization"
+};
+function openPayload(format, topic) {
+  const obj = { id: newId(), time: nowSec(), event: "open", topic };
+  if (format === "sse")
+    return `event: open
+data: ${JSON.stringify(obj)}
+
+`;
+  if (format === "json")
+    return JSON.stringify(obj) + `
+`;
+  return null;
+}
+function keepalivePayload(format, topic) {
+  if (format === "sse")
+    return `: keepalive
+
+`;
+  if (format === "json") {
+    return JSON.stringify({ id: newId(), time: nowSec(), event: "keepalive", topic }) + `
+`;
+  }
+  return null;
+}
+function pollResponse(topic, format, since) {
+  const messages = listNtfyMessages(topic, since);
+  if (format === "json") {
+    return new Response(JSON.stringify(messages.map(toWire), null, 2) + `
+`, {
+      headers: { "content-type": "application/json; charset=utf-8", ...CORS }
+    });
+  }
+  const body = messages.map((m) => encode(format, m)).join("");
+  const ct = format === "sse" ? "text/event-stream" : "text/plain";
+  return new Response(body, {
+    headers: { "content-type": `${ct}; charset=utf-8`, ...CORS }
+  });
+}
+function subscribeResponse(topic, format, url) {
+  if (!TOPIC_RE.test(topic)) {
+    return new Response(JSON.stringify({ error: "invalid topic" }) + `
+`, {
+      status: 404,
+      headers: { "content-type": "application/json; charset=utf-8", ...CORS }
+    });
+  }
+  if (url.searchParams.get("poll") === "1") {
+    return pollResponse(topic, format, url.searchParams.get("since"));
+  }
+  const enc = new TextEncoder;
+  let sub = null;
+  let keepalive = null;
+  const cleanup = () => {
+    if (keepalive)
+      clearInterval(keepalive);
+    keepalive = null;
+    if (sub) {
+      const set = subscribers.get(topic);
+      set?.delete(sub);
+      if (set && set.size === 0)
+        subscribers.delete(topic);
+      sub = null;
+    }
+  };
+  const stream = new ReadableStream({
+    start(controller) {
+      const push = (chunk) => controller.enqueue(enc.encode(chunk));
+      sub = { format, push };
+      let set = subscribers.get(topic);
+      if (!set) {
+        set = new Set;
+        subscribers.set(topic, set);
+      }
+      set.add(sub);
+      const open = openPayload(format, topic);
+      if (open)
+        push(open);
+      for (const m of listNtfyMessages(topic, url.searchParams.get("since"))) {
+        push(encode(format, m));
+      }
+      keepalive = setInterval(() => {
+        try {
+          const ka = keepalivePayload(format, topic);
+          if (ka)
+            push(ka);
+        } catch {
+          cleanup();
+        }
+      }, KEEPALIVE_MS);
+    },
+    cancel() {
+      cleanup();
+    }
+  });
+  const ct = format === "sse" ? "text/event-stream" : format === "json" ? "application/x-ndjson" : "text/plain";
+  return new Response(stream, {
+    headers: {
+      "content-type": `${ct}; charset=utf-8`,
+      "cache-control": "no-cache",
+      connection: "keep-alive",
+      "x-accel-buffering": "no",
+      ...CORS
+    }
   });
 }
 
@@ -18467,7 +18702,7 @@ async function pollAllFeeds() {
     }
     if (total > 0) {
       const lines = perFeed.map((f) => `\u2022 ${f.name}: ${f.ingested}`);
-      notify({
+      publishMessage(NTFY_LOCAL_TOPIC, {
         title: "OTG-BOT",
         message: `${total} new item(s)
 ${lines.join(`
@@ -19102,7 +19337,7 @@ setInterval(refreshStatus, 30000);
 // src/index.ts
 var PORT = Number(process.env.SERVER_PORT ?? process.env.PORT ?? 3000);
 var INGEST_TOKEN = process.env.INGEST_TOKEN || null;
-var VERSION = "1.2.0";
+var VERSION = "1.3.0";
 var MAX_BATCH = 25;
 var MAX_IMPORT = 1e4;
 var SKIP_FOLDERS = new Set([
@@ -19121,7 +19356,7 @@ class HttpError extends Error {
     this.status = status;
   }
 }
-var CORS = {
+var CORS2 = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "access-control-allow-headers": "content-type, authorization"
@@ -19130,7 +19365,7 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2) + `
 `, {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", ...CORS }
+    headers: { "content-type": "application/json; charset=utf-8", ...CORS2 }
   });
 }
 function safeEqual(a, b) {
@@ -19336,7 +19571,7 @@ function serveSnapshot(id) {
     "content-security-policy": "sandbox",
     "x-content-type-options": "nosniff",
     "cache-control": "private, max-age=300",
-    ...CORS
+    ...CORS2
   };
   if (!/html/i.test(snap.content_type ?? "")) {
     return new Response(snap.html, {
@@ -19377,14 +19612,16 @@ var RE = {
   docNote: /^\/documents\/(\d+)\/notes\/(\d+)$/,
   feed: /^\/feeds\/(\d+)$/,
   feedCheck: /^\/feeds\/(\d+)\/check$/,
-  notifyTest: /^\/notify\/test$/
+  notifyTest: /^\/notify\/test$/,
+  topicSub: /^\/([A-Za-z0-9_\-@.]{1,64})\/(sse|json|raw)$/,
+  topicPub: /^\/([A-Za-z0-9_\-@.]{1,64})$/
 };
 async function route(req) {
   const url = new URL(req.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
   const method = req.method;
   if (method === "OPTIONS")
-    return new Response(null, { status: 204, headers: CORS });
+    return new Response(null, { status: 204, headers: CORS2 });
   const isWrite = method !== "GET" && method !== "HEAD";
   if (isWrite && !authorized(req, url))
     return json({ error: "unauthorized" }, 401);
@@ -19424,7 +19661,12 @@ async function route(req) {
         "GET    /settings": "runtime settings",
         "PUT    /settings": "update settings (feed_poll_minutes, feeds_enabled, snapshots)",
         "GET    /queue": "worker queue statistics",
-        "POST   /notify/test": "send a test ntfy notification (needs NTFY_TOPIC)"
+        "PUT    /<topic>": "publish a push message (body = message; Title/Priority/Tags/Click headers)",
+        "POST   /<topic>": "publish a push message (same as PUT)",
+        "GET    /<topic>/sse": "subscribe: Server-Sent Events stream",
+        "GET    /<topic>/json": "subscribe: newline-delimited JSON stream (?poll=1 one-shot)",
+        "GET    /<topic>/raw": "subscribe: raw message stream",
+        "POST   /notify/test": "publish a test message to the local push topic"
       },
       documents: Object.fromEntries(counts.map((c) => [c.status, c.n])),
       writes: INGEST_TOKEN ? "token required" : "open"
@@ -19561,19 +19803,37 @@ async function route(req) {
     });
   }
   if (RE.notifyTest.exec(path) && method === "POST") {
-    if (!ntfyEnabled()) {
-      return json({ sent: false, error: "ntfy not configured \u2014 set NTFY_TOPIC" }, 503);
+    const msg = publishMessage(NTFY_LOCAL_TOPIC, {
+      title: "OTG-BOT",
+      message: "Test notification \u2014 the push server is wired up.",
+      tags: ["white_check_mark"]
+    });
+    return json({ sent: true, topic: NTFY_LOCAL_TOPIC, id: msg.id });
+  }
+  m = RE.topicSub.exec(path);
+  if (m && method === "GET") {
+    return subscribeResponse(m[1], m[2], url);
+  }
+  m = RE.topicPub.exec(path);
+  if (m && (method === "PUT" || method === "POST")) {
+    const topic = m[1];
+    if (!TOPIC_RE.test(topic))
+      return json({ error: "invalid topic" }, 404);
+    const body = await req.text();
+    const message = body || url.searchParams.get("message") || req.headers.get("x-message") || "";
+    if (!message)
+      throw new HttpError(400, "message body is required");
+    if (Buffer.byteLength(message) > MAX_MESSAGE_BYTES) {
+      throw new HttpError(413, `message exceeds ${MAX_MESSAGE_BYTES} bytes`);
     }
-    try {
-      await sendNotification({
-        title: "OTG-BOT",
-        message: "Test notification \u2014 ntfy is wired up.",
-        tags: ["white_check_mark"]
-      });
-      return json({ sent: true, url: process.env.NTFY_URL ?? "https://ntfy.sh" });
-    } catch (err) {
-      return json({ sent: false, error: err.message }, 502);
-    }
+    const msg = publishMessage(topic, {
+      message,
+      title: req.headers.get("title") ?? req.headers.get("x-title") ?? url.searchParams.get("title") ?? undefined,
+      priority: parsePriority(req.headers.get("priority") ?? req.headers.get("x-priority")),
+      tags: parseTags(req.headers.get("tags") ?? req.headers.get("x-tags")),
+      click: req.headers.get("click") ?? req.headers.get("x-click") ?? url.searchParams.get("click") ?? undefined
+    });
+    return json({ id: msg.id, time: msg.time, topic: msg.topic });
   }
   return json({ error: "not found" }, 404);
 }

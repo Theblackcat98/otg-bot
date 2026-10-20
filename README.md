@@ -17,7 +17,7 @@ For day-to-day usage see **[DOCS.md](DOCS.md)**.
 - **Raw snapshots** — the original HTML of each page, served sandboxed.
 - **Tags and notes** — organise and annotate documents; filter lists and search by tag.
 - **RSS/Atom watcher** — polls feeds on an interval, ingests new items, tags them with the feed name. Feeds, interval and on/off switch are managed in the UI.
-- **ntfy push notifications** — when the feed watcher finds new items, a digest goes to your ntfy topic (phone push). Set `NTFY_TOPIC`; `POST /notify/test` to verify.
+- **Built-in push server** — ntfy-compatible publish/subscribe: `PUT /<topic>` to send, subscribe your phone's ntfy app to `http://<host>:<port>/<topic>` for pushes. No ntfy.sh needed; optional mirror to an external ntfy server.
 - **Full-text search** — SQLite FTS5, prefix matching, ranked, highlighted snippets.
 
 ## Architecture
@@ -83,7 +83,9 @@ The full reference with examples is in [DOCS.md](DOCS.md). Summary:
 | POST | `/feeds/:id/check` | Check a feed now |
 | GET · PUT | `/settings` | Runtime settings |
 | GET | `/queue` | Worker queue statistics |
-| POST | `/notify/test` | Send a test ntfy notification (needs `NTFY_TOPIC`) |
+| PUT · POST | `/<topic>` | Publish a push message (body = message; `Title`/`Priority`/`Tags`/`Click` headers) |
+| GET | `/<topic>/sse` · `/json` · `/raw` | Subscribe: SSE / newline-JSON / raw stream (`?poll=1` one-shot) |
+| POST | `/notify/test` | Publish a test message to the local push topic |
 
 Every write (POST, PUT, PATCH, DELETE) requires `INGEST_TOKEN` when it is set.
 
@@ -102,9 +104,10 @@ Every write (POST, PUT, PATCH, DELETE) requires `INGEST_TOKEN` when it is set.
 | `MAX_BYTES` | `5000000` | Maximum HTML bytes fetched per page |
 | `MAX_ATTEMPTS` | `3` | Attempts before a document is marked `error` |
 | `SNAPSHOTS` | `1` | Set to `0` to disable snapshot storage entirely |
-| `NTFY_TOPIC` | *(unset)* | ntfy topic for push notifications; unset disables them. Use a hard-to-guess topic on the public server (e.g. `otg-<random>`) |
-| `NTFY_URL` | `https://ntfy.sh` | ntfy server (self-hosted or paid tiers) |
-| `NTFY_TOKEN` | *(unset)* | Bearer token when the ntfy server requires auth |
+| `NTFY_LOCAL_TOPIC` | `otg` | Local push topic for feed digests and `/notify/test` — subscribe your ntfy app to `/<topic>` on this server |
+| `NTFY_TOPIC` | *(unset)* | When set, every local push is also mirrored to this topic on `NTFY_URL` (e.g. ntfy.sh). Unset to go fully local |
+| `NTFY_URL` | `https://ntfy.sh` | External ntfy server for the mirror (self-hosted or paid tiers) |
+| `NTFY_TOKEN` | *(unset)* | Bearer token when the external ntfy server requires auth |
 | `USER_AGENT` | `Mozilla/5.0 (compatible; OTGBot/1.0; …)` | User agent for page and feed fetches |
 
 ### Runtime settings (managed in the UI or `PUT /settings`)
@@ -131,7 +134,7 @@ Atom, an ETag-aware feed, a failing feed and a bookmarks export.
 bun run build
 bun run test:fixtures &                                                     # port 3995
 SERVER_PORT=3996 DATA_DIR=/tmp/otg-test NTFY_TOPIC=otg-test NTFY_URL=http://localhost:3995/ntfy bun dist/index.js &
-bun run test:e2e                              # expects 65 passing checks
+bun run test:e2e                              # expects 71 passing checks
 ```
 
 ## Deployed on Botkeep

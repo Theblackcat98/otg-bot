@@ -15,7 +15,7 @@ import {
   type FeedRow,
 } from "./db";
 import { kick } from "./worker";
-import { notify } from "./notify";
+import { NTFY_LOCAL_TOPIC, publishMessage } from "./ntfy";
 
 const FETCH_TIMEOUT_MS = 20_000;
 const TICK_MS = 60_000;
@@ -144,7 +144,7 @@ async function pollAllFeeds(): Promise<void> {
     }
     if (total > 0) {
       const lines = perFeed.map((f) => `• ${f.name}: ${f.ingested}`);
-      notify({
+      publishMessage(NTFY_LOCAL_TOPIC, {
         title: "OTG-BOT",
         message: `${total} new item(s)\n${lines.join("\n")}`.slice(0, 1000),
         tags: ["newspaper"],

@@ -50,7 +50,7 @@ const readyDoc = (url: string) =>
 // ---------------------------------------------------------------- service & UI
 {
   const h = await call("/health");
-  check("health ok + version 1.2.0", h.data.ok === true && h.data.version === "1.2.0", h.data);
+  check("health ok + version 1.3.0", h.data.ok === true && h.data.version === "1.3.0", h.data);
 
   const ui = await call("/");
   check("GET / serves UI html", ui.status === 200 && String(ui.data).includes("OTG-BOT"), ui.status);
@@ -251,6 +251,55 @@ let brokenId = 0;
     last,
   );
   check("ntfy Title header", last?.headers?.title === "OTG-BOT", last?.headers);
+}
+
+// ---------------------------------------------------------------- built-in ntfy push server
+{
+  const p = await call("/e2e-topic", {
+    method: "PUT",
+    headers: { title: "E2E", priority: "4", tags: "test,tada" },
+    body: "hello from e2e",
+  });
+  check("ntfy publish 200 + id", p.status === 200 && typeof p.data.id === "string", p.data);
+
+  const polled = (await fetch(`${BASE}/e2e-topic/json?poll=1`).then((r) => r.json())) as any[];
+  check(
+    "ntfy poll returns cached message",
+    Array.isArray(polled) &&
+      polled.some(
+        (m: any) => m.message === "hello from e2e" && m.title === "E2E" && m.priority === 4,
+      ),
+    polled,
+  );
+
+  // live SSE delivery: open the stream, publish, watch the message arrive
+  const ctrl = new AbortController();
+  const sseRes = await fetch(`${BASE}/e2e-topic/sse`, { signal: ctrl.signal });
+  check("ntfy sse 200 event-stream", sseRes.status === 200 && (sseRes.headers.get("content-type") ?? "").includes("text/event-stream"), sseRes.status);
+  const reader = sseRes.body!.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  const readUntil = async (pred: (b: string) => boolean, timeoutMs = 8000): Promise<boolean> => {
+    const end = Date.now() + timeoutMs;
+    while (Date.now() < end) {
+      const { value, done } = await reader.read();
+      if (done) return pred(buf);
+      buf += dec.decode(value, { stream: true });
+      if (pred(buf)) return true;
+    }
+    return pred(buf);
+  };
+  const gotOpen = await readUntil((b) => b.includes("event: open"));
+  await call("/e2e-topic", { method: "POST", body: "live sse message" });
+  const gotLive = await readUntil((b) => b.includes("live sse message"));
+  ctrl.abort();
+  check("ntfy sse live delivery", gotOpen && gotLive, buf.slice(0, 200));
+
+  const badTopic = await call("/bad!topic", { method: "PUT", body: "x" });
+  check("ntfy invalid topic → 404", badTopic.status === 404, badTopic.status);
+
+  const empty = await call("/e2e-topic", { method: "PUT", body: "" });
+  check("ntfy empty message → 400", empty.status === 400, empty.status);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed`);

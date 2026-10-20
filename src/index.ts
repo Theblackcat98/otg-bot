@@ -1,11 +1,11 @@
 /**
- * OTG-BOT — URL keeper pipeline (v1.2.0).
+ * OTG-BOT — URL keeper pipeline (v1.3.0).
  *
  *   Ingestion API  : save URLs, import bookmarks, RSS/Atom feed watcher
  *   Scraper worker : fetches pages, extracts clean text + metadata (Cheerio)
  *   Embedded store : bun:sqlite — content, snapshots, tags, notes, FTS5 index
  *   Web UI         : served at /
- *   Notifications  : ntfy.sh push when the feed watcher finds new items
+ *   Push server   : ntfy-compatible publish/subscribe (SSE, JSON, raw streams)
  *
  * Start: bun run dist/index.js   (dev: bun run src/index.ts)
  */
@@ -38,14 +38,22 @@ import {
   stmts,
 } from "./db";
 import { checkFeedNow, startFeeds, stopFeeds } from "./feeds";
-import { ntfyEnabled, sendNotification } from "./notify";
+import {
+  MAX_MESSAGE_BYTES,
+  NTFY_LOCAL_TOPIC,
+  parsePriority,
+  parseTags,
+  publishMessage,
+  subscribeResponse,
+  TOPIC_RE,
+} from "./ntfy";
 import UI_HTML from "./ui.html" with { type: "text" };
 import { kick, startWorker, stopWorker } from "./worker";
 
 // Botkeep exposes the allocated public port as SERVER_PORT; PORT is a generic fallback.
 const PORT = Number(process.env.SERVER_PORT ?? process.env.PORT ?? 3000);
 const INGEST_TOKEN = process.env.INGEST_TOKEN || null;
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 const MAX_BATCH = 25;
 const MAX_IMPORT = 10_000;
 const SKIP_FOLDERS = new Set([
@@ -358,6 +366,8 @@ const RE = {
   feed: /^\/feeds\/(\d+)$/,
   feedCheck: /^\/feeds\/(\d+)\/check$/,
   notifyTest: /^\/notify\/test$/,
+  topicSub: /^\/([A-Za-z0-9_\-@.]{1,64})\/(sse|json|raw)$/,
+  topicPub: /^\/([A-Za-z0-9_\-@.]{1,64})$/,
 };
 
 async function route(req: Request): Promise<Response> {
@@ -409,7 +419,12 @@ async function route(req: Request): Promise<Response> {
         "GET    /settings": "runtime settings",
         "PUT    /settings": "update settings (feed_poll_minutes, feeds_enabled, snapshots)",
         "GET    /queue": "worker queue statistics",
-        "POST   /notify/test": "send a test ntfy notification (needs NTFY_TOPIC)",
+        "PUT    /<topic>": "publish a push message (body = message; Title/Priority/Tags/Click headers)",
+        "POST   /<topic>": "publish a push message (same as PUT)",
+        "GET    /<topic>/sse": "subscribe: Server-Sent Events stream",
+        "GET    /<topic>/json": "subscribe: newline-delimited JSON stream (?poll=1 one-shot)",
+        "GET    /<topic>/raw": "subscribe: raw message stream",
+        "POST   /notify/test": "publish a test message to the local push topic",
       },
       documents: Object.fromEntries(counts.map((c) => [c.status, c.n])),
       writes: INGEST_TOKEN ? "token required" : "open",
@@ -559,21 +574,48 @@ async function route(req: Request): Promise<Response> {
     });
   }
 
-  // ---- ntfy notifications
+  // ---- ntfy-compatible push server (checked after all specific routes)
   if (RE.notifyTest.exec(path) && method === "POST") {
-    if (!ntfyEnabled()) {
-      return json({ sent: false, error: "ntfy not configured — set NTFY_TOPIC" }, 503);
+    const msg = publishMessage(NTFY_LOCAL_TOPIC, {
+      title: "OTG-BOT",
+      message: "Test notification — the push server is wired up.",
+      tags: ["white_check_mark"],
+    });
+    return json({ sent: true, topic: NTFY_LOCAL_TOPIC, id: msg.id });
+  }
+
+  m = RE.topicSub.exec(path);
+  if (m && method === "GET") {
+    return subscribeResponse(m[1], m[2] as "sse" | "json" | "raw", url);
+  }
+
+  m = RE.topicPub.exec(path);
+  if (m && (method === "PUT" || method === "POST")) {
+    const topic = m[1];
+    if (!TOPIC_RE.test(topic)) return json({ error: "invalid topic" }, 404);
+    const body = await req.text();
+    const message =
+      body || url.searchParams.get("message") || req.headers.get("x-message") || "";
+    if (!message) throw new HttpError(400, "message body is required");
+    if (Buffer.byteLength(message) > MAX_MESSAGE_BYTES) {
+      throw new HttpError(413, `message exceeds ${MAX_MESSAGE_BYTES} bytes`);
     }
-    try {
-      await sendNotification({
-        title: "OTG-BOT",
-        message: "Test notification — ntfy is wired up.",
-        tags: ["white_check_mark"],
-      });
-      return json({ sent: true, url: process.env.NTFY_URL ?? "https://ntfy.sh" });
-    } catch (err) {
-      return json({ sent: false, error: (err as Error).message }, 502);
-    }
+    const msg = publishMessage(topic, {
+      message,
+      title:
+        req.headers.get("title") ??
+        req.headers.get("x-title") ??
+        url.searchParams.get("title") ??
+        undefined,
+      priority: parsePriority(req.headers.get("priority") ?? req.headers.get("x-priority")),
+      tags: parseTags(req.headers.get("tags") ?? req.headers.get("x-tags")),
+      click:
+        req.headers.get("click") ??
+        req.headers.get("x-click") ??
+        url.searchParams.get("click") ??
+        undefined,
+    });
+    return json({ id: msg.id, time: msg.time, topic: msg.topic });
   }
 
   return json({ error: "not found" }, 404);

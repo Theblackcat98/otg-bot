@@ -344,7 +344,12 @@ curl $BASE/api         # endpoint map, version, document counts
 | GET | `/settings` | | 200 | |
 | PUT | `/settings` | any of the keys in §9 | 200 | |
 | GET | `/queue` | | 200 | |
-| POST | `/notify/test` | | 200 `{sent}` | Needs `NTFY_TOPIC`; token if set |
+| PUT | `/<topic>` | message body; `Title`/`Priority`/`Tags`/`Click` headers | 200 `{id, time, topic}` | Token if set |
+| POST | `/<topic>` | same as PUT | 200 | Token if set |
+| GET | `/<topic>/sse` | | 200 SSE stream | `?since=`, `?poll=1` |
+| GET | `/<topic>/json` | | 200 JSON stream | `?since=`, `?poll=1` |
+| GET | `/<topic>/raw` | | 200 raw stream | `?since=`, `?poll=1` |
+| POST | `/notify/test` | | 200 `{sent, topic, id}` | Token if set |
 
 ---
 
@@ -378,34 +383,60 @@ Runtime settings (§9) do not need a restart.
 | `MAX_BYTES` | `5000000` | Maximum HTML per page |
 | `MAX_ATTEMPTS` | `3` | Tries before a page is marked `error` |
 | `SNAPSHOTS` | `1` | `0` disables snapshot storage |
-| `NTFY_TOPIC` | *(unset)* | ntfy topic for push notifications; unset = disabled |
-| `NTFY_URL` | `https://ntfy.sh` | ntfy server (self-hosted or paid tiers) |
-| `NTFY_TOKEN` | *(unset)* | Bearer token when the ntfy server requires auth |
+| `NTFY_LOCAL_TOPIC` | `otg` | Local push topic for feed digests and `/notify/test` |
+| `NTFY_TOPIC` | *(unset)* | When set, every local push is mirrored to this topic on `NTFY_URL` |
+| `NTFY_URL` | `https://ntfy.sh` | External ntfy server for the mirror |
+| `NTFY_TOKEN` | *(unset)* | Bearer token when the external server requires auth |
 | `USER_AGENT` | `OTGBot/1.0` | Sent with page and feed requests |
 
 ---
 
-## 15. Push notifications (ntfy)
+## 15. Push notifications (built-in ntfy server)
 
-otg-bot can push to your phone via [ntfy](https://ntfy.sh) — a simple
-HTTP-based pub/sub notification service with free Android/iOS apps.
+otg-bot hosts its own ntfy-compatible push server — your phone subscribes
+directly to it, no ntfy.sh or third-party service needed.
 
-**Setup**
+**Phone setup**
 
-1. Install the ntfy app and subscribe to a topic. Pick a hard-to-guess name —
-   anyone who guesses a public ntfy.sh topic can read it (e.g. `otg-x7q2m9`).
-2. Set `NTFY_TOPIC=<your-topic>` in Botkeep → OTG-BOT → **Environment**, then restart.
-   `NTFY_URL` (default `https://ntfy.sh`) and `NTFY_TOKEN` (bearer auth for
-   self-hosted or paid tiers) are optional.
-3. Verify:
+1. Install the ntfy app (Android / iOS).
+2. Add a subscription for `http://node4.botkeep.cloud:37112/otg`
+   (replace `otg` with your `NTFY_LOCAL_TOPIC` if you changed it).
+3. Verify from a shell:
 
    ```sh
-   curl -X POST $BASE/notify/test        # 200 {"sent": true, ...}
+   curl -X POST $BASE/notify/test        # 200 {"sent": true, "topic": "otg", ...}
    ```
+
+   Your phone should buzz within a second or two.
+
+**Send a push**
+
+```sh
+# simple
+curl -X PUT $BASE/otg -d "Dinner's ready"
+
+# with title, priority (1=min..5=urgent) and tags
+curl -X PUT $BASE/otg -H 'Title: Feed watcher' -H 'Priority: high' \
+  -H 'Tags: newspaper' -d "3 new items from Test RSS"
+```
+
+Headers also work `X-`-prefixed (`X-Title`, …). `POST` works like `PUT`.
+
+**Subscribe from scripts**
+
+```sh
+curl -s $BASE/otg/json        # newline-delimited JSON stream (recommended)
+curl -s $BASE/otg/sse         # Server-Sent Events
+curl -s "$BASE/otg/json?poll=1"   # one-shot: cached messages, then close
+```
+
+The server caches the newest 200 messages per topic and replays them to new
+subscribers (`?since=<message-id>` resumes after an id).
 
 **What you get notified about**
 
-When a feed poll ingests new items, one digest goes out per poll:
+When a feed poll ingests new items, one digest goes out per poll to
+`NTFY_LOCAL_TOPIC`:
 
 ```
 3 new items
@@ -413,6 +444,19 @@ When a feed poll ingests new items, one digest goes out per poll:
 • Test Atom: 1
 ```
 
-Notifications are fire-and-forget: a failed publish is logged and never breaks
-ingestion or the worker. If `NTFY_TOPIC` is unset, `POST /notify/test` returns
-503 and no notifications are sent.
+**Mirroring to ntfy.sh (optional)**
+
+Set `NTFY_TOPIC` and every local push is also published to that topic on
+`NTFY_URL` (default `https://ntfy.sh`, `NTFY_TOKEN` for auth) — useful while
+you transition, or as a backup path. Unset it to go fully local.
+
+**Delivery caveats**
+
+- The server speaks the documented ntfy protocol (publish + SSE/JSON/raw
+  streams), but background push on phones depends on the app build: the
+  Android F-Droid build does instant delivery over a persistent connection;
+  the Play Store build needs FCM, which this server does not provide. iOS
+  without an upstream server falls back to slow polling.
+- Publishing requires `INGEST_TOKEN` when it is set; subscribing is open,
+  like other reads. Anyone who guesses a topic name can subscribe to it —
+  use an unguessable topic for anything private.

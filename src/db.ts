@@ -100,6 +100,20 @@ CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- ntfy-compatible push server: cached messages per topic
+CREATE TABLE IF NOT EXISTS ntfy_messages (
+  seq      INTEGER PRIMARY KEY AUTOINCREMENT, -- total publish order
+  id       TEXT NOT NULL UNIQUE,              -- public message id
+  topic    TEXT NOT NULL,
+  time     INTEGER NOT NULL, -- unix seconds
+  message  TEXT NOT NULL,
+  title    TEXT,
+  priority INTEGER NOT NULL DEFAULT 3,
+  tags     TEXT,             -- comma-separated emoji aliases
+  click    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ntfy_topic_seq ON ntfy_messages(topic, seq);
 `);
 
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
@@ -448,4 +462,58 @@ export function getSettings(): Record<string, string> {
     if (row.key in out) out[row.key] = row.value;
   }
   return out;
+}
+
+// ---------------------------------------------------------------- ntfy push server
+
+export interface NtfyMessage {
+  id: string;
+  topic: string;
+  time: number;
+  message: string;
+  title: string | null;
+  priority: number;
+  tags: string | null;
+  click: string | null;
+}
+
+/** Keep the newest N messages per topic; the cache replays on subscribe. */
+const NTFY_CACHE_PER_TOPIC = 200;
+
+export function saveNtfyMessage(m: NtfyMessage): void {
+  db.run(
+    `INSERT INTO ntfy_messages (id, topic, time, message, title, priority, tags, click)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [m.id, m.topic, m.time, m.message, m.title, m.priority, m.tags, m.click],
+  );
+  db.run(
+    `DELETE FROM ntfy_messages WHERE topic = ? AND seq NOT IN (
+       SELECT seq FROM ntfy_messages WHERE topic = ? ORDER BY seq DESC LIMIT ?
+     )`,
+    [m.topic, m.topic, NTFY_CACHE_PER_TOPIC],
+  );
+}
+
+/** Cached messages for a topic, oldest first. `sinceId` skips up to and including it. */
+export function listNtfyMessages(topic: string, sinceId?: string | null): NtfyMessage[] {
+  let rows: NtfyMessage[];
+  if (sinceId && sinceId !== "all") {
+    const anchor = db
+      .prepare("SELECT seq FROM ntfy_messages WHERE id = ? AND topic = ?")
+      .get(sinceId, topic) as { seq: number } | undefined;
+    rows = (anchor
+      ? db
+          .prepare(
+            "SELECT id, topic, time, message, title, priority, tags, click FROM ntfy_messages WHERE topic = ? AND seq > ? ORDER BY seq ASC LIMIT ?",
+          )
+          .all(topic, anchor.seq, NTFY_CACHE_PER_TOPIC)
+      : []) as NtfyMessage[];
+  } else {
+    rows = db
+      .prepare(
+        "SELECT id, topic, time, message, title, priority, tags, click FROM ntfy_messages WHERE topic = ? ORDER BY seq ASC LIMIT ?",
+      )
+      .all(topic, NTFY_CACHE_PER_TOPIC) as NtfyMessage[];
+  }
+  return rows;
 }
